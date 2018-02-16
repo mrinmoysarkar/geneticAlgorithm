@@ -1,0 +1,21 @@
+%% solution1.m
+% author: Mrinmoy sarkar
+% date: 2/16/2018
+% email: msarkar@aggies.ncat.edu
+
+
+pop_size = 100;
+str_len = 20;
+total_pop = round(rand(pop_size,str_len));
+pc = 0.7;
+pm = 0.001;
+gen_no = 20;
+
+fit = @fitness1;
+
+fit_of_gen = zeros(pop_size,gen_no);
+
+for i=1:gen_no
+    
+end
+
