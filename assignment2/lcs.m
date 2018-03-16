@@ -1,5 +1,5 @@
 clear all;
-%close all;
+close all;
 
 
 A = 2;
@@ -31,16 +31,16 @@ alphabet=[0,1,hash];
 for i=1:n
     for j=1:A+D+Out
         if j==A+D+Out
-           pop(i,j) = alphabet(randi(2,1));
+            pop(i,j) = alphabet(randi(2,1));
         else
-           pop(i,j) = alphabet(randi(3,1));
+            pop(i,j) = alphabet(randi(3,1));
         end
     end
 end
 
 total_ite = 60000;
 Cext = 0.005;
-Ctax = 0.8;
+Ctax = 0.85;
 Cbid = 0.1;
 C = 8;
 ite = 0;
@@ -51,8 +51,6 @@ indx1=1;
 while ite <= total_ite
     if mod(ite,10000)==0
         env = env(randperm(size(env, 1)), :);
-        B = sortrows(round(pop),8,'descend');
-        B(1:16,:)
     end
     for i=1:size(env,1)
         msg = env(i,:);
@@ -70,11 +68,12 @@ while ite <= total_ite
             indx1 = indx1+1;
             total_corect = 0;
         end
+        if mod(ite,5000)==0
+            sol_count = count_sol(pop)
+        end
     end
 end
-B = sortrows(round(pop),8,'descend');
 
-B(1:40,:)
 figure(1)
 subplot(311)
 plot(avg_score)
