@@ -79,19 +79,8 @@ end
 sol_count = count_sol(pop);
 final_solution = sol_count(1:8,:);
 final_solution(:,end+1) = bi2de(final_solution(:,1:2),'left-msb');
-final_solution = sortrows(final_solution,10);
+final_solution = sortrows(final_solution,10)
 for i=1:8
-    for j=1:9
-        if final_solution(i,j) == hash
-            printf('#')
-        else
-            if j==7 || j==8
-                printf('\t')
-            end
-            printf('%d',final_solution(i,j))
-        end
-    end
-    printf('\n')
 end
 
 figure(1)
