@@ -1,5 +1,5 @@
 clear all;
-close all;
+%close all;
 
 
 A = 2;
@@ -15,7 +15,6 @@ for i=1:D
     ind2 = i*2^D;
     env(ind1:ind2,end)=bin(ind1:ind2,A+i);
 end
-
 env = env(randperm(size(env, 1)), :);
 
 
@@ -27,43 +26,62 @@ R=1000;
 pop(:,end) = pop(:,end) + S;
 hash = 7;
 
+alphabet=[0,1,hash];
+
 for i=1:n
     for j=1:A+D+Out
-        r = rand;
         if j==A+D+Out
-            if r<=0.5
-                pop(i,j) = 0;
-            else
-                pop(i,j) = 1;
-            end
+           pop(i,j) = alphabet(randi(2,1));
         else
-            if r <= 0.33
-                pop(i,j) = 0;
-            elseif r > 0.33 && r <= 0.66
-                pop(i,j) = 1;
-            else
-                pop(i,j) = hash;
-            end
+           pop(i,j) = alphabet(randi(3,1));
         end
     end
 end
 
-total_ite = 18000;
-Cext = 0.05;
+total_ite = 60000;
+Cext = 0.005;
 Ctax = 0.8;
 Cbid = 0.1;
 C = 8;
 ite = 0;
 Pc = 0.6;
 Pm = 0.001;
-
+total_corect = 0;
+indx1=1;
 while ite <= total_ite
+    if mod(ite,10000)==0
+        env = env(randperm(size(env, 1)), :);
+        B = sortrows(round(pop),8,'descend');
+        B(1:16,:)
+    end
     for i=1:size(env,1)
         msg = env(i,:);
-        pop = match(msg,pop,hash,Cbid,Ctax,Cext,C,R,ite,Pc,Pm);
+        m = match(msg,pop,hash);
+        [pop,corect] = clearinghouse(pop,m,Cext,Ctax,Cbid,R,msg,hash);
         ite = ite+1;
+        total_corect = total_corect + corect;
+        if mod(ite,25)==0
+            pop = ga(pop,Pc,Pm,hash);
+        end
+        if mod(ite,100)==0
+            avg_score(indx1) = total_corect;
+            percent_hash(indx1) = count_hash(pop,hash);
+            Tsol(indx1) = noOfCorrectSol(pop,hash);
+            indx1 = indx1+1;
+            total_corect = 0;
+        end
     end
 end
 B = sortrows(round(pop),8,'descend');
 
 B(1:40,:)
+figure(1)
+subplot(311)
+plot(avg_score)
+title('average score')
+subplot(312)
+plot(percent_hash)
+title('percent hash')
+subplot(313)
+plot(Tsol)
+title('Tsol')

@@ -1,5 +1,4 @@
 function new_pop = cross(pop,pc)
-n = floor(size(pop,1)/2);
 l = size(pop,2)-2;
 k = randi(l-1,1,1);
 new_pop = pop;

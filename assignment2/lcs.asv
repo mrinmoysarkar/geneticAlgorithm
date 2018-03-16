@@ -15,84 +15,62 @@ for i=1:D
     ind2 = i*2^D;
     env(ind1:ind2,end)=bin(ind1:ind2,A+i);
 end
-
 env = env(randperm(size(env, 1)), :);
 
 
 n = 400;
 
 pop = zeros(n,A+D+Out+1);
-S=1000;
+S=100;
 R=1000;
 pop(:,end) = pop(:,end) + S;
 hash = 7;
 
+alphabet=[0,1,hash];
+
 for i=1:n
     for j=1:A+D+Out
-        r = rand;
         if j==A+D+Out
-            if r<=0.5
-                pop(i,j) = 0;
-            else
-                pop(i,j) = 1;
-            end
+           pop(i,j) = alphabet(randi(2,1));
         else
-            if r <= 0.33
-                pop(i,j) = 0;
-            elseif r > 0.33 && r <= 0.66
-                pop(i,j) = 1;
-            else
-                pop(i,j) = hash;
-            end
+           pop(i,j) = alphabet(randi(3,1));
         end
     end
 end
 
-total_ite = 20000;
-Cext = 0.005;
-Ctax = 0.6;
+total_ite = 60000;
+Cext = 0.05;
+Ctax = 0.8;
 Cbid = 0.1;
 C = 8;
 ite = 0;
 Pc = 0.6;
 Pm = 0.001;
-
+total_corect = 0;
+indx1=1;
 while ite <= total_ite
+    if mod(ite,15000)==0
+        env = env(randperm(size(env, 1)), :);
+    end
     for i=1:size(env,1)
         msg = env(i,:);
-        EB = 0;
-        EBi = 0;
-        EBs = 0;
-        for j=1:n
-            classifier = pop(j,:);
-            y = match(msg, classifier,hash);
-            if y==0
-                pop(j,end) = pop(j,end)*(1-Cext);
-            else
-                if pop(j,end)*Cbid > EB
-                    EB = pop(j,end)*Cbid;
-                    EBi = j;
-                    EBs = pop(j,end);
-                end
-                pop(j,end) = pop(j,end)*(1-Ctax-Cext);
-            end
-        end
-        pop(EBi,end) = pop(EBi,end)-EB;
-        classifier = pop(j,:);
-        if match(msg, pop(EBi,:),hash)==2
-                pop(EBi,end) = pop(EBi,end) + R*(1+C*noOfHash(classifier,hash)/(A+D));
-        end
-        
+        m = match(msg,pop,hash);
+        [pop,corect] = clearinghouse(pop,m,Cext,Ctax,Cbid,R,msg,hash);
         ite = ite+1;
-        if mod(ite,10) == 0
-            %apply GA
-            new_pop = reproduction(pop);
-            [newpop,oldpop] = cross(pop,Pc);
-            newpop = mutation(newpop,Pm,hash);
-            pop = newpop;
+        total_corect = total_corect + 1;
+        if mod(ite,25)==0
+            pop = ga(pop,Pc,Pm,hash);
+        end
+        if mod(ite,100)==0
+            avg_score(indx1) = total_corect;
+            percent_hash(indx1) = count_hash(pop,hash);
+            indx1 = indx1+1;
+            total_corect = 0;
         end
     end
 end
 B = sortrows(round(pop),8,'descend');
 
 B(1:40,:)
+
+plot()
