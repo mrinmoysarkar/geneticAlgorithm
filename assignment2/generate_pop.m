@@ -2,7 +2,6 @@ function pop = generate_pop(n,l,hash,S)
 pop = zeros(n,l+1);
 pop(:,end) = pop(:,end) + S;
 alphabet=[0,1,hash];
-
 for i=1:n
     for j=1:l
         if j==l

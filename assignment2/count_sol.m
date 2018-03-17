@@ -1,5 +1,4 @@
 function y=count_sol(pop)
-
 k=1;
 while ~isempty(pop)
     classifier = pop(1,:);
@@ -13,5 +12,4 @@ while ~isempty(pop)
     k = k+1;
 end
 y=sortrows(round(y),8,'descend');
-
 end

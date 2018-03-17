@@ -1,5 +1,4 @@
 function y = noOfCorrectSol(pop,hash)
-
 n=size(pop,1);
 y = 0;
 for i=1:n
@@ -26,5 +25,4 @@ for i=1:n
     end
     y = y+sol;
 end
-
 end
