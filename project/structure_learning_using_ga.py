@@ -14,7 +14,7 @@ from pgmpy.estimators import K2Score, BicScore, BdeuScore
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
+from graph_tool.all import *
 
 def generate_pop(size,strLen):
     pop = np.random.rand(size,strLen)
@@ -32,6 +32,13 @@ def get_structure_from_string(string,var):
             indx += 1;
     model = BayesianModel(structure)
     return model
+
+def getBestStructure(pop,popSize,var,scoreFunc):
+    score=np.zeros(popSize)
+    for i in range(popSize):
+        model = get_structure_from_string(pop[i],var)
+        score[i] = scoreFunc.score(model)
+    return pop[np.argmax(score)], np.max(score)
 
 def selection(pop,popSize,var,scoreFunc):
     score=np.zeros(popSize)
@@ -52,8 +59,6 @@ def selection(pop,popSize,var,scoreFunc):
     p2 = indexs[i2]
     return p1,p2,avgScore
         
-    
-
 def crossover(pop,p1,p2,pc,stringLen):
     crossSite = np.random.randint(low=1,high=stringLen-2)
     if np.random.rand() > pc:
@@ -72,13 +77,48 @@ def mutation(pop,pm,popSize,strigLen):
                     pop[i,j] = 1;
     return pop
 
+def plotGraph(string,var,fileName):
+    g = Graph()
+    vlist = []
+    for i in range(len(var)):
+        v = g.add_vertex()
+        vlist.append(v)
+    elist = []
+    indx = 0
+    for i in range(len(var)-1):
+        for j in range(i+1):
+            if string[indx] == 1:
+                e = g.add_edge(vlist[j], vlist[i+1])
+                elist.append(e)
+            indx += 1;
+    vprop = g.new_vertex_property("string")
+    for i in range(len(var)):
+        vprop[vlist[i]] = var[i]
+    g.vertex_properties["name"]=vprop 
+    graph_draw(g, 
+               vertex_text=g.vertex_properties["name"], 
+               vertex_font_size=18,
+               output=fileName)
+               
+def readGroundTruth(fileName):
+    fileName = 'ground_truth_' + fileName
+    f = open(fileName,'r')
+    string = f.read()
+    struc = []
+    for i in range(len(string)-1):
+        struc.append(float(string[i]))
+    return struc
+    
+
 if __name__ == '__main__':
-    bnNetworkFileName = 'asia.bif'
+    networkName = 'cancer'
+    bnNetworkFileName = networkName + '.bif'
+    trueStructure = readGroundTruth(networkName)
     bn = BIFReader(path=bnNetworkFileName)
     var = bn.get_variables()
     bnModel = bn.get_model()
     inference = BayesianModelSampling(bnModel)
-    dataSet = inference.forward_sample(size=500, return_type='dataframe')
+    dataSet = inference.forward_sample(size=5000, return_type='dataframe')
     
     model = BayesianModel()
     model.add_nodes_from(var)
@@ -108,9 +148,9 @@ if __name__ == '__main__':
     
     noOfvar = len(var)
     popSize = 100;
-    noOfgeneration = 1000
-    pm = 0.001
-    pc = 0.6
+    noOfgeneration = 10
+    pm = 0.01
+    pc = 0.5
     stringLen = int(noOfvar*(noOfvar-1)/2)
     
     pop = generate_pop(popSize,stringLen)
@@ -130,3 +170,8 @@ if __name__ == '__main__':
     #print(p1,p2,avgScore)
     plt.plot(scores)
     plt.show()
+    plotGraph(trueStructure,var,"trueStructure.png")
+    
+    bStruc,bScore = getBestStructure(pop,popSize,var,k2)
+    plotGraph(bStruc,var,"foundBestStructure.png")
+    print(bScore)
