@@ -10,11 +10,14 @@ from pgmpy.factors.discrete import TabularCPD
 from pgmpy.sampling import BayesianModelSampling
 from  pgmpy.readwrite.BIF import BIFReader
 from pgmpy.estimators import MaximumLikelihoodEstimator, BayesianEstimator
-from pgmpy.estimators import K2Score, BicScore, BdeuScore
+from pgmpy.estimators import K2Score, BicScore, BdeuScore, HillClimbSearch
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from graph_tool.all import *
+from pgmpy.inference import VariableElimination
+from pgmpy.estimators import BayesianEstimator
+
 
 def generate_pop(size,strLen):
     pop = np.random.rand(size,strLen)
@@ -45,8 +48,9 @@ def selection(pop,popSize,var,scoreFunc):
     for i in range(popSize):
         model = get_structure_from_string(pop[i],var)
         score[i] = scoreFunc.score(model)
+    popScore = np.copy(score)
     avgScore = np.mean(score)
-    noOfsamples = 10;
+    noOfsamples = 5;
     indexs = np.zeros(noOfsamples,dtype=int);
     for i in range(noOfsamples):
         indexs[i] = np.argmax(score)
@@ -57,15 +61,30 @@ def selection(pop,popSize,var,scoreFunc):
     indexs = np.delete(indexs,i1);
     i2 = np.random.randint(low=0,high=noOfsamples-2)
     p2 = indexs[i2]
-    return p1,p2,avgScore
+    return p1,p2,avgScore,popScore
         
-def crossover(pop,p1,p2,pc,stringLen):
-    crossSite = np.random.randint(low=1,high=stringLen-2)
-    if np.random.rand() > pc:
-        temp = pop[p1,:]
-        pop[p1,crossSite:stringLen] = pop[p2,crossSite:stringLen]
-        pop[p2,crossSite:stringLen] = temp[crossSite:stringLen]
+def replace(pop,child1,child2,popScore):
+    i1 = np.argmin(popScore)
+    pop[i1] = child1
+    popScore[i1] = 100
+    i2 = np.argmin(popScore)
+    pop[i2] = child2
     return pop
+    
+def crossover(pop,p1,p2,pc,stringLen):
+    if np.random.rand() > pc:
+        crossSite = np.random.randint(low=1,high=stringLen-2)
+        temp = pop[p1,:]
+        child1 = np.zeros(stringLen)
+        child2 = np.zeros(stringLen)
+        child1[0:crossSite] = pop[p1,0:crossSite]
+        child1[crossSite:stringLen] = pop[p2,crossSite:stringLen]
+        child2[0:crossSite] = pop[p2,0:crossSite]
+        child2[crossSite:stringLen] = pop[p1,crossSite:stringLen]
+#        pop[p1,crossSite:stringLen] = pop[p2,crossSite:stringLen]
+#        pop[p2,crossSite:stringLen] = temp[crossSite:stringLen]
+        return child1, child2
+    return [],[]
 
 def mutation(pop,pm,popSize,strigLen):
     for i in range(popSize):
@@ -98,7 +117,8 @@ def plotGraph(string,var,fileName):
     graph_draw(g, 
                vertex_text=g.vertex_properties["name"], 
                vertex_font_size=18,
-               output=fileName)
+               output=fileName)#,
+               #output_size=(1300, 1300))
                
 def readGroundTruth(fileName):
     fileName = 'ground_truth_' + fileName
@@ -110,6 +130,47 @@ def readGroundTruth(fileName):
     return struc
     
 
+
+def getFactorVal(var, values, evidence):
+    values = values[evidence[var[0]]]
+    del(var[0])
+    if len(var)==0:
+        return values
+    else:
+        return getFactorVal(var,values,evidence)
+        
+def getjointProbability(parameters, evidence, var):
+    #factors = inference.factors
+    jointProb = 1;
+    for i in range(len(parameters)):
+        #print(var[i])
+        fact = parameters[i]
+        #print(fact)
+        variables = list(fact.variables)
+        values = list(fact.values)
+        factVal = getFactorVal(variables, values, evidence)
+        jointProb *= factVal
+        #print(factVal)
+    return jointProb
+    
+def getLoglikelihood(string, var, dataSet):
+    dataInDict = dataSet.to_dict('index')
+    model = get_structure_from_string(string,var)
+    estimator = BayesianEstimator(model, dataSet)
+    parameters = estimator.get_parameters()
+    n = len(dataInDict)
+    total = 0
+    for i in range(n):
+        evidence = dataInDict[i]        
+        jp = getjointProbability(parameters, evidence,var)
+        jp = -np.math.log10(jp)
+        total += jp
+    #total = -np.math.log10(total/n)
+
+    #print('jp:',total)
+    return total
+    
+
 if __name__ == '__main__':
     networkName = 'cancer'
     bnNetworkFileName = networkName + '.bif'
@@ -118,7 +179,8 @@ if __name__ == '__main__':
     var = bn.get_variables()
     bnModel = bn.get_model()
     inference = BayesianModelSampling(bnModel)
-    dataSet = inference.forward_sample(size=5000, return_type='dataframe')
+    sampleSize = 3000
+    dataSet = inference.forward_sample(size=sampleSize, return_type='dataframe')
     
     model = BayesianModel()
     model.add_nodes_from(var)
@@ -136,7 +198,7 @@ if __name__ == '__main__':
     k2 = K2Score(dataSet)
     bic = BicScore(dataSet)
     bdeu = BdeuScore(dataSet)
-    
+    #k2=bic
 #    print(k2.score(bnModel))
 #    print(k2.score(model))
 #    
@@ -147,10 +209,10 @@ if __name__ == '__main__':
 #    print(bdeu.score(model))
     
     noOfvar = len(var)
-    popSize = 100;
-    noOfgeneration = 10
+    popSize = 10
+    noOfgeneration = 100
     pm = 0.01
-    pc = 0.5
+    pc = 0.9
     stringLen = int(noOfvar*(noOfvar-1)/2)
     
     pop = generate_pop(popSize,stringLen)
@@ -161,17 +223,53 @@ if __name__ == '__main__':
     #print(k2.score(model))
     #crossover(pop,1,2,0.6,stringLen)
     scores = np.zeros(noOfgeneration)
+    bestchildll = np.zeros(noOfgeneration)
     for i in range(noOfgeneration):
-        p1,p2,avgScore = selection(pop,popSize,var,k2)
+        p1,p2,avgScore,popScore = selection(pop,popSize,var,k2)
+        bestchi = pop[np.argmax(popScore)]
+        bestchildll[i] = getLoglikelihood(list(bestchi), var, dataSet)
         scores[i] = avgScore
-        pop = crossover(pop,p1,p2,pc,stringLen)
+        child1,child2 = crossover(pop,p1,p2,pc,stringLen)
+        if (len(child1) != 0) and (len(child2) != 0):
+            pop = replace(pop,child1,child2,popScore)
         pop = mutation(pop,pm,popSize,stringLen)
         print("generationNo.: ",i)
     #print(p1,p2,avgScore)
     plt.plot(scores)
     plt.show()
+    plt.plot(bestchildll)   
+    plt.show()
+    
     plotGraph(trueStructure,var,"trueStructure.png")
     
     bStruc,bScore = getBestStructure(pop,popSize,var,k2)
     plotGraph(bStruc,var,"foundBestStructure.png")
-    print(bScore)
+    print('log*:',getLoglikelihood(list(bStruc), var, dataSet)) 
+    print('logo:',getLoglikelihood(trueStructure, var, dataSet))     
+    print('k2*:', bScore)
+    print('k2o:',k2.score(bnModel))
+       
+    
+    
+    #est = HillClimbSearch(dataSet, scoring_method=k2)
+    #best_model = est.estimate()
+    #print(best_model.edges())
+    
+    #dataInDict = dataSet.to_dict('index')
+    
+    #estimator = BayesianEstimator(bnModel, dataSet)
+    
+    #inference = VariableElimination(bnModel)
+    #evidence = dataInDict[0]
+    #print(evidence)
+    #parameters = estimator.get_parameters()
+    #jp = getjointProbability(parameters, evidence,var)
+    
+    #print('jp:',jp)
+    #(equivalent_sample_size=sampleSize)
+
+    #q = inference.query(variables=var)
+
+#    var=['State','Roll','Roll speed','Pitch','pitch speed','Yaw','Yaw speed','Xacc','Yacc','Zacc']
+#    st =np.array([1,1,0,1,0,0,1,0,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0])    
+#    plotGraph(st,var,"trueStructure.png")
