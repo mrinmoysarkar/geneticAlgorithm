@@ -17,7 +17,9 @@ import matplotlib.pyplot as plt
 from graph_tool.all import *
 from pgmpy.inference import VariableElimination
 from pgmpy.estimators import BayesianEstimator
-
+import time
+import sys
+from multiprocessing import Process, Queue
 
 def generate_pop(size,strLen):
     pop = np.random.rand(size,strLen)
@@ -63,13 +65,13 @@ def selection(pop,popSize,var,scoreFunc):
     p2 = indexs[i2]
     return p1,p2,avgScore,popScore
         
-def replace(pop,child1,child2,popScore):
-    i1 = np.argmin(popScore)
-    pop[i1] = child1
-    popScore[i1] = 100
-    i2 = np.argmin(popScore)
-    pop[i2] = child2
-    return pop
+#def replace(pop,child1,child2,popScore):
+#    i1 = np.argmin(popScore)
+#    pop[i1] = child1
+#    popScore[i1] = 100
+#    i2 = np.argmin(popScore)
+#    pop[i2] = child2
+#    return pop
     
 def crossover(pop,p1,p2,pc,stringLen):
     if np.random.rand() > pc:
@@ -86,16 +88,60 @@ def crossover(pop,p1,p2,pc,stringLen):
         return child1, child2
     return [],[]
 
-def mutation(pop,pm,popSize,strigLen):
+#def mutation(pop,pm,popSize,strigLen):
+#    for i in range(popSize):
+#        for j in range(stringLen):
+#            if np.random.rand() > pm:
+#                if pop[i,j] == 1: 
+#                    pop[i,j] = 0;
+#                else:
+#                    pop[i,j] = 1;
+#    return pop
+def mutation(child,pm,stringLen):
+    for j in range(stringLen):
+        if np.random.rand() > pm:
+            if child[j] == 1: 
+                child[j] = 0;
+            else:
+                child[j] = 1;
+    return child
+
+def replace(pop,popSize,stringLen,scoreFunc):
+    if pop.shape[0] == popSize:
+        return pop
+    score=np.zeros(pop.shape[0])
+    for i in range(pop.shape[0]):
+        model = get_structure_from_string(pop[i],var)
+        score[i] = scoreFunc.score(model)
+    newpop = np.zeros([popSize,stringLen])
     for i in range(popSize):
-        for j in range(stringLen):
-            if np.random.rand() > pm:
-                if pop[i,j] == 1: 
-                    pop[i,j] = 0;
-                else:
-                    pop[i,j] = 1;
+        i1 = np.argmax(score)
+        score = np.delete(score,i1)
+        newpop[i] = pop[i1]
+        pop = np.delete(pop,i1,axis=0)
+    return newpop
+    
+def reGenerate(pop,popSize,var,scoreFunc,stringLen,pc,pm):
+    tempop = np.copy(pop)
+    for i in range(int(popSize/2)):
+        p1,p2,avgScore,popScore = selection(pop,popSize,var,scoreFunc)
+        child1,child2 = crossover(pop,p1,p2,pc,stringLen)
+        if (len(child1) != 0) and (len(child2) != 0):
+            child1 = mutation(child1,pm,stringLen)
+            child2 = mutation(child2,pm,stringLen)
+            tempop = np.append(tempop,[child1],axis=0)
+            tempop = np.append(tempop,[child2],axis=0)
+    pop = replace(tempop,popSize,stringLen,scoreFunc)
     return pop
 
+
+def getStatisticOfGen(pop,popSize,scoreFunc):
+    score=np.zeros(pop.shape[0])
+    for i in range(pop.shape[0]):
+        model = get_structure_from_string(pop[i],var)
+        score[i] = scoreFunc.score(model)      
+    return score, np.max(score), np.mean(score)
+        
 def plotGraph(string,var,fileName):
     g = Graph()
     vlist = []
@@ -170,7 +216,20 @@ def getLoglikelihood(string, var, dataSet):
     #print('jp:',total)
     return total
     
-
+def runGA(noOfgeneration,popSize,stringLen,var,pc,pm,scoreFunc,q):
+    scoresAvg = np.zeros(noOfgeneration)
+    scoresMax = np.zeros(noOfgeneration)
+    pop = generate_pop(popSize,stringLen)
+    popScore,maxScore,avgScore = getStatisticOfGen(pop,popSize,scoreFunc)
+    scoresAvg[0] += avgScore
+    scoresMax[0] += maxScore   
+    for i in range(noOfgeneration-1):
+        pop = reGenerate(pop,popSize,var,scoreFunc,stringLen,pc,pm)
+        popScore,maxScore,avgScore = getStatisticOfGen(pop,popSize,scoreFunc)
+        scoresAvg[i+1] += avgScore
+        scoresMax[i+1] += maxScore
+    q.put(scoresAvg)  
+        
 if __name__ == '__main__':
     networkName = 'cancer'
     bnNetworkFileName = networkName + '.bif'
@@ -210,44 +269,98 @@ if __name__ == '__main__':
     
     noOfvar = len(var)
     popSize = 10
-    noOfgeneration = 100
+    noOfgeneration = 200
     pm = 0.01
     pc = 0.9
     stringLen = int(noOfvar*(noOfvar-1)/2)
+    noOfrun = 10
+    startTime = time.time()
+    #create a Queue to share results
+    q = Queue()
+    p1 = Process(target=runGA, args=(noOfgeneration,popSize,stringLen,var,pc,pm,k2,q))
+    p1.start()
+    p2 = Process(target=runGA, args=(noOfgeneration,popSize,stringLen,var,pc,pm,k2,q))
+    p2.start()
+    p3 = Process(target=runGA, args=(noOfgeneration,popSize,stringLen,var,pc,pm,k2,q))
+    p3.start()
+    p4 = Process(target=runGA, args=(noOfgeneration,popSize,stringLen,var,pc,pm,k2,q))
+    p4.start()
+    p5 = Process(target=runGA, args=(noOfgeneration,popSize,stringLen,var,pc,pm,k2,q))
+    p5.start()
+    p6 = Process(target=runGA, args=(noOfgeneration,popSize,stringLen,var,pc,pm,k2,q))
+    p6.start()
+    p7 = Process(target=runGA, args=(noOfgeneration,popSize,stringLen,var,pc,pm,k2,q))
+    p7.start()
+    p8 = Process(target=runGA, args=(noOfgeneration,popSize,stringLen,var,pc,pm,k2,q))
+    p8.start()
+    p9 = Process(target=runGA, args=(noOfgeneration,popSize,stringLen,var,pc,pm,k2,q))
+    p9.start()
+    p10 = Process(target=runGA, args=(noOfgeneration,popSize,stringLen,var,pc,pm,k2,q))
+    p10.start()
+    #runGA(noOfgeneration,popSize,stringLen,var,pc,pm,scoreFunc,q)
+    scoresAvg = np.zeros(noOfgeneration)
+    scoresMax = np.zeros(noOfgeneration)
+    for i in range(noOfrun):
+        scoresAvg += q.get(True)
+        
+    p1.join()
+    p2.join()
+    p3.join()
+    p4.join()
+    p5.join()
+    p6.join()
+    p7.join()
+    p8.join()
+    p9.join()
+    p10.join()
     
-    pop = generate_pop(popSize,stringLen)
+    endTime = time.time()
+    workTime =  endTime - startTime
+    print("The job took " + str(workTime) + " seconds to complete")
+#    for run in range(noOfrun):
+#        pop = generate_pop(popSize,stringLen)
+#        popScore,maxScore,avgScore = getStatisticOfGen(pop,popSize,k2)
+#        scoresAvg[0] += avgScore
+#        scoresMax[0] += maxScore
+#    
+#        for i in range(noOfgeneration-1):
+#            pop = reGenerate(pop,popSize,var,k2,stringLen,pc,pm)
+#            popScore,maxScore,avgScore = getStatisticOfGen(pop,popSize,k2)
+#            scoresAvg[i+1] += avgScore
+#            scoresMax[i+1] += maxScore
+    scoresAvg /= noOfrun
     #model = get_structure_from_string(pop[1],var)
     
     #print(k2.score(model))
     #model.fit(dataSet, estimator=MaximumLikelihoodEstimator)
     #print(k2.score(model))
     #crossover(pop,1,2,0.6,stringLen)
-    scores = np.zeros(noOfgeneration)
-    bestchildll = np.zeros(noOfgeneration)
-    for i in range(noOfgeneration):
-        p1,p2,avgScore,popScore = selection(pop,popSize,var,k2)
-        bestchi = pop[np.argmax(popScore)]
-        bestchildll[i] = getLoglikelihood(list(bestchi), var, dataSet)
-        scores[i] = avgScore
-        child1,child2 = crossover(pop,p1,p2,pc,stringLen)
-        if (len(child1) != 0) and (len(child2) != 0):
-            pop = replace(pop,child1,child2,popScore)
-        pop = mutation(pop,pm,popSize,stringLen)
-        print("generationNo.: ",i)
+#    scores = np.zeros(noOfgeneration)
+#    bestchildll = np.zeros(noOfgeneration)
+#    for i in range(noOfgeneration):
+#        p1,p2,avgScore,popScore = selection(pop,popSize,var,k2)
+#        bestchi = pop[np.argmax(popScore)]
+#        bestchildll[i] = getLoglikelihood(list(bestchi), var, dataSet)
+#        scores[i] = avgScore
+#        child1,child2 = crossover(pop,p1,p2,pc,stringLen)
+#        if (len(child1) != 0) and (len(child2) != 0):
+#            pop = replace(pop,child1,child2,popScore)
+#        pop = mutation(pop,pm,popSize,stringLen)
+#        print("generationNo.: ",i)
     #print(p1,p2,avgScore)
-    plt.plot(scores)
+    plt.plot(scoresAvg)
     plt.show()
-    plt.plot(bestchildll)   
-    plt.show()
-    
-    plotGraph(trueStructure,var,"trueStructure.png")
-    
-    bStruc,bScore = getBestStructure(pop,popSize,var,k2)
-    plotGraph(bStruc,var,"foundBestStructure.png")
-    print('log*:',getLoglikelihood(list(bStruc), var, dataSet)) 
-    print('logo:',getLoglikelihood(trueStructure, var, dataSet))     
-    print('k2*:', bScore)
-    print('k2o:',k2.score(bnModel))
+#    plt.plot(bestchildll)   
+#    plt.show()
+#    
+#    plotGraph(trueStructure,var,"trueStructure.png")
+#    
+#    bStruc,bScore = getBestStructure(pop,popSize,var,k2)
+#    plotGraph(bStruc,var,"foundBestStructure.png")
+#    print('log*:',getLoglikelihood(list(bStruc), var, dataSet)) 
+#    print('logo:',getLoglikelihood(trueStructure, var, dataSet))     
+#    print('k2*:', bScore)
+#    print('k2o:',k2.score(bnModel))
        
     
     
