@@ -7,9 +7,51 @@ Created on Tue May 15 09:32:07 2018
 
 import pandas as pd
 import numpy as np
+from sklearn.tree import DecisionTreeRegressor
 
+def addMissingData(datatable, variables, isContinuous):
+    noOfdiscreteVar = 0
+    newVariables = []
+    for i in range(len(isContinuous)):
+        if not isContinuous[i]:
+            if noOfdiscreteVar == 0:
+                d = dataset[variables[i]]
+                newVariables.append(variables[i])
+            else:
+                d_temp = dataset[variables[i]]
+                d = pd.concat([d,d_temp],axis=1)
+                newVariables.append(variables[i])
+            noOfdiscreteVar += 1
+    allexperiment = [0]*noOfdiscreteVar
+    indx1 = 0
+    d = pd.DataFrame(d)
+    allpossiblecomb = []
+    addMissingExperimentData(d,newVariables,allexperiment,indx1,allpossiblecomb)
+    colname={}
+    for i in range(len(variables)):
+        colname[i]=variables[i]
+    dNew = pd.DataFrame(allpossiblecomb)
+    dNew = dNew.rename(columns=colname)
+    if noOfdiscreteVar==len(variables):
+        datatable = datatable.append(dNew)
+        datatable = datatable.reset_index(drop=True)
+    else:
+        rtree = DecisionTreeRegressor()
+        X = d.as_matrix()
+        print(X)
+        while noOfdiscreteVar != len(variables):
+            y = datatable[variables[noOfdiscreteVar]]
+            y=y.as_matrix()
+            rtree.fit(X,y)
+            y_das = rtree.predict(allpossiblecomb)
+            d1 = pd.DataFrame({variables[noOfdiscreteVar]:y_das})
+            dNew = pd.concat([dNew, d1],axis=1)
+            noOfdiscreteVar += 1
+        datatable = datatable.append(dNew)
+        datatable = datatable.reset_index(drop=True)
+    return datatable
 
-def addMissingExperimentData(datatable,variables,allexperiment,indx):
+def addMissingExperimentData(datatable,variables,allexperiment,indx,allpossiblecomb):
     discretedata = datatable[variables[0]]
     discretedata = discretedata.unique()
     for i in range(len(discretedata)):
@@ -18,11 +60,15 @@ def addMissingExperimentData(datatable,variables,allexperiment,indx):
         allexperiment[indx] = state
         if len(newvariables)>1:
             del newvariables[0]
-            addMissingExperimentData(datatable,newvariables,allexperiment,indx+1)
+            addMissingExperimentData(datatable,newvariables,allexperiment,indx+1,allpossiblecomb)
         else:
             #print(allexperiment)
-            datatable.loc[len(datatable)] = allexperiment
+            allpossiblecomb.append(allexperiment[:])
+            #print(allpossiblecomb)
+            #print("vvvvvvvv")
+            #datatable.loc[len(datatable)] = allexperiment
             #print(len(datatable))
+
         
 
 def getParam(datatable,variables,isContinuous):
@@ -38,10 +84,16 @@ def getParam(datatable,variables,isContinuous):
                 newdatatable = newdatatable.drop(variables[1],axis=1)
                 newvariables = list(variables)
                 state = discretedata[i]
-                del newvariables[1]
                 newisContinuous = list(isContinuous)
+                discretevar = False
+                if len(newisContinuous)>=3 and (not newisContinuous[2]):
+                    discretevar = newvariables[2]
+                del newvariables[1]
                 del newisContinuous[1]
-                param[state] = getParam(newdatatable,newvariables,newisContinuous)
+                if not discretevar:
+                    param[state] = getParam(newdatatable,newvariables,newisContinuous)
+                else:
+                    param[state] = {discretevar:getParam(newdatatable,newvariables,newisContinuous)}
         else:
             if len(variables) > 1:
                 mu = np.array(datatable.mean()) 
@@ -79,10 +131,16 @@ def getParam(datatable,variables,isContinuous):
                 newdatatable = newdatatable.drop(variables[1],axis=1)
                 newvariables = list(variables)
                 state = discretedata[i]
-                del newvariables[1]
                 newisContinuous = list(isContinuous)
+                discretevar = False
+                if len(newisContinuous)>=3 and (not newisContinuous[2]):
+                    discretevar = newvariables[2]
+                del newvariables[1]
                 del newisContinuous[1]
-                param[state] = getParam(newdatatable,newvariables,newisContinuous)
+                if not discretevar:
+                    param[state] = getParam(newdatatable,newvariables,newisContinuous)
+                else:
+                    param[state] = {discretevar:getParam(newdatatable,newvariables,newisContinuous)}
     return param
     
 def getParameters(structure,dataset,variables,isContinuous):
@@ -104,10 +162,10 @@ def getParameters(structure,dataset,variables,isContinuous):
                 hasParent = True
             indx = indx+1
         d = pd.DataFrame(d)
-        if newisContinuous[0] == False and len(newVariables)>1:
-            allexperiment = [0]*len(variables)
-            indx1 = 0
-            addMissingExperimentData(d,newVariables,allexperiment,indx1)
+        # if newisContinuous[0] == False and len(newVariables)>1:
+        #     allexperiment = [0]*len(variables)
+        #     indx1 = 0
+            #addMissingExperimentData(d,newVariables,allexperiment,indx1)
         param={} 
         #print(d)
         #print(newisContinuous)
@@ -119,7 +177,16 @@ def getParameters(structure,dataset,variables,isContinuous):
     return parameters
     
     
-    
+def getProbabilityForGaussiandist(x,mu,var):
+    pass
+
+def getJointprobability(variables, param, structure):
+    for i in range(len(variables)):
+        for j in range(i):
+            if structure[j]:
+                pass
+
+
 if __name__ == '__main__':
 #    dataset = pd.DataFrame({"x1":[7,7,8,8,8],"x2":[3,6,6,6,3],"x3":[5,6,6,6,5]})
 #    variables = ['x1','x2','x3']
@@ -129,8 +196,11 @@ if __name__ == '__main__':
 ##    indx = 0
 ##    addMissingExperimentData(dataset,variables,allexperiment,indx)
 #    param[variables[1]] = getParam(dataset,variables,isContinuous)
-    structure = [1,1,0]
-    dataset = pd.DataFrame({"x1":[0,0,1],"x2":[3,3,6],"x3":[5,6,10]})
-    variables = ['x1','x2','x3']
-    isContinuous=[False,True,True]
+    structure = [1,1,1,1,1,1]
+    dataset = pd.DataFrame({"x1":[0,0,1],"x2":[1,0,1],"x3":[1,1,0],"x4":[1,1,0]})
+    variables = ['x1','x2','x3','x4']
+    isContinuous=[False,False,False,True]
+    dataset = addMissingData(dataset, variables, isContinuous)
+    print(dataset)
     parm = getParameters(structure,dataset,variables,isContinuous)
+    print(parm)
