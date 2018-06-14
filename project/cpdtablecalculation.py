@@ -105,8 +105,9 @@ def getParam(datatable,variables,isContinuous):
                 var21 = np.transpose(var12)
                 var22 = var[1:,1:]  
                 var22_inv = np.linalg.pinv(var22)
-                var = var11-np.matmul(np.matmul(var12,var22_inv),var21)
-                param = {'mu1':mu1,'mu2':mu2,'var':var,'var12':var12,'var22_inv':var22_inv}
+                var2 = np.matmul(var12,var22_inv)
+                var = var11-np.matmul(var2,var21)
+                param = {'mu1':[mu1],'mu2':mu2,'var':[var],'var2':var2}
                 return param
             else:
                 mu = np.array(datatable.mean()) 
@@ -175,16 +176,72 @@ def getParameters(structure,dataset,variables,isContinuous):
             param = getParam(d,newVariables,newisContinuous)
         parameters.append(param)
     return parameters
-    
+  
+def getFactor(parents,parameter,isContinuous,sample,varname,variscont):
+    if (not parents) or isContinuous[0]:
+        print(parameter)
+        if variscont:
+            if not parents:
+                print("single continuous")
+                temp = sample[varname]
+                x = temp[0]
+                mu = parameter['mu']
+                mu = mu[0]
+                var = parameter['var']
+                var = var[0][0]
+                print(x,mu,var)
+                factor = getProbabilityForGaussiandist(x,mu,var)
+                print(factor)
+                return factor
+            else:
+                print("multi conti")
+                temp = sample[varname]
+                x = temp[0]
+                par = []
+                for i in range(len(parents)):
+                    temp = sample[parents[i]]
+                    par.append(temp[0])
+                a = np.array(par)
+                mu1 = parameter['mu1']
+                mu1 = mu1[0]
+                mu2 = parameter['mu2']
+                mu2 = mu2[0]
+                var2 = parameter['var2']
+                mu = mu1 + np.matmul(var2,(a-mu2))
+                var = parameter['var']
+                var = var[0]
+                factor = getProbabilityForGaussiandist(x,mu,var)
+                print(factor)
+                return factor
+        else:
+            temp = sample[varname]
+            factor = parameter[temp[0]]
+            print(factor)
+            return factor
+    else:
+        prnt = parents[0]
+        del parents[0]
+        del isContinuous[0]
+        parameter = parameter[prnt]
+        temp = sample[prnt]
+        parameter = parameter[temp[0]]
+        getFactor(parents,parameter,isContinuous,sample,varname,variscont)
+
     
 def getProbabilityForGaussiandist(x,mu,var):
-    pass
+    A = 1.0/(np.sqrt(2*np.pi*var))
+    return A*np.exp(-((x-mu)**2)/(2*var))
 
-def getJointprobability(variables, param, structure):
+def getJointprobability(variables, param, structure, isContinuous):
     for i in range(len(variables)):
+        parents=[]
+        isconti=[]
         for j in range(i):
-            if structure[j]:
-                pass
+            if structure[j+i-1]:
+                parents.append(variables[j])
+                isconti.append(isContinuous[j])
+        sample = pd.DataFrame({"x1":[0],"x2":[1],"x3":[0],"x4":[1]});
+        factor = getFactor(parents,param[i],isconti,sample,variables[i],isContinuous[i])
 
 
 if __name__ == '__main__':
@@ -199,8 +256,9 @@ if __name__ == '__main__':
     structure = [1,1,1,1,1,1]
     dataset = pd.DataFrame({"x1":[0,0,1],"x2":[1,0,1],"x3":[1,1,0],"x4":[1,1,0]})
     variables = ['x1','x2','x3','x4']
-    isContinuous=[False,False,False,True]
+    isContinuous=[False,False,True,True]
     dataset = addMissingData(dataset, variables, isContinuous)
     print(dataset)
-    parm = getParameters(structure,dataset,variables,isContinuous)
-    print(parm)
+    param = getParameters(structure,dataset,variables,isContinuous)
+    print(param)
+    getJointprobability(variables, param, structure,isContinuous)
