@@ -8,6 +8,10 @@ Created on Tue May 15 09:32:07 2018
 import pandas as pd
 import numpy as np
 from sklearn.tree import DecisionTreeRegressor
+import math
+from sklearn import datasets
+import random
+
 
 def addMissingData(datatable, variables, isContinuous):
     noOfdiscreteVar = 0
@@ -38,7 +42,6 @@ def addMissingData(datatable, variables, isContinuous):
     else:
         rtree = DecisionTreeRegressor()
         X = d.as_matrix()
-        print(X)
         while noOfdiscreteVar != len(variables):
             y = datatable[variables[noOfdiscreteVar]]
             y=y.as_matrix()
@@ -177,30 +180,23 @@ def getParameters(structure,dataset,variables,isContinuous):
         parameters.append(param)
     return parameters
   
-def getFactor(parents,parameter,isContinuous,sample,varname,variscont):
+def getFactor(variables,parents,parameter,isContinuous,sample,varname,variscont,variableindex):
     if (not parents) or isContinuous[0]:
-        print(parameter)
         if variscont:
             if not parents:
-                print("single continuous")
-                temp = sample[varname]
-                x = temp[0]
+                x = sample[variableindex]
                 mu = parameter['mu']
                 mu = mu[0]
                 var = parameter['var']
                 var = var[0][0]
-                print(x,mu,var)
                 factor = getProbabilityForGaussiandist(x,mu,var)
-                print(factor)
                 return factor
             else:
-                print("multi conti")
-                temp = sample[varname]
-                x = temp[0]
+                x = sample[variableindex]
                 par = []
                 for i in range(len(parents)):
-                    temp = sample[parents[i]]
-                    par.append(temp[0])
+                    temp = sample[variables.index(parents[i])]
+                    par.append(temp)
                 a = np.array(par)
                 mu1 = parameter['mu1']
                 mu1 = mu1[0]
@@ -211,38 +207,40 @@ def getFactor(parents,parameter,isContinuous,sample,varname,variscont):
                 var = parameter['var']
                 var = var[0]
                 factor = getProbabilityForGaussiandist(x,mu,var)
-                print(factor)
                 return factor
         else:
-            temp = sample[varname]
-            factor = parameter[temp[0]]
-            print(factor)
+            temp = (sample[variableindex])
+            factor = parameter[temp]
             return factor
     else:
         prnt = parents[0]
+        temp = sample[variables.index(prnt)]
         del parents[0]
         del isContinuous[0]
         parameter = parameter[prnt]
-        temp = sample[prnt]
-        parameter = parameter[temp[0]]
-        getFactor(parents,parameter,isContinuous,sample,varname,variscont)
+        parameter = parameter[temp]
+        return getFactor(variables,parents,parameter,isContinuous,sample,varname,variscont,variableindex)
 
     
 def getProbabilityForGaussiandist(x,mu,var):
     A = 1.0/(np.sqrt(2*np.pi*var))
     return A*np.exp(-((x-mu)**2)/(2*var))
 
-def getJointprobability(variables, param, structure, isContinuous):
-    for i in range(len(variables)):
-        parents=[]
-        isconti=[]
-        for j in range(i):
-            if structure[j+i-1]:
-                parents.append(variables[j])
-                isconti.append(isContinuous[j])
-        sample = pd.DataFrame({"x1":[0],"x2":[1],"x3":[0],"x4":[1]});
-        factor = getFactor(parents,param[i],isconti,sample,variables[i],isContinuous[i])
-
+def getJointprobability(variables, param, structure, isContinuous,samples):
+    for k in range(samples.shape[0]):
+        p = 1.0;
+        for i in range(len(variables)):
+            parents=[]
+            isconti=[]
+            for j in range(i):
+                if structure[j+i-1]:
+                    parents.append(variables[j])
+                    isconti.append(isContinuous[j])
+            sample = samples.iloc[k,:] #pd.DataFrame({"x1":[0],"x2":[1],"x3":[0],"x4":[1]});
+            factor = getFactor(variables,parents,param[i],isconti,sample,variables[i],isContinuous[i],i)
+            if not math.isnan(float(str(factor))):
+                p *= factor
+        print(p)
 
 if __name__ == '__main__':
 #    dataset = pd.DataFrame({"x1":[7,7,8,8,8],"x2":[3,6,6,6,3],"x3":[5,6,6,6,5]})
@@ -253,12 +251,30 @@ if __name__ == '__main__':
 ##    indx = 0
 ##    addMissingExperimentData(dataset,variables,allexperiment,indx)
 #    param[variables[1]] = getParam(dataset,variables,isContinuous)
-    structure = [1,1,1,1,1,1]
-    dataset = pd.DataFrame({"x1":[0,0,1],"x2":[1,0,1],"x3":[1,1,0],"x4":[1,1,0]})
-    variables = ['x1','x2','x3','x4']
-    isContinuous=[False,False,True,True]
+    # structure = [1,1,1,1,1,1]
+    # dataset = pd.DataFrame({"x1":[0,0,1],"x2":[1,0,1],"x3":[1,1,0],"x4":[1,1,0]})
+    # variables = ['x1','x2','x3','x4']
+    # isContinuous=[False,False,True,True]
+    # dataset = addMissingData(dataset, variables, isContinuous)
+    # param = getParameters(structure,dataset,variables,isContinuous)
+    # getJointprobability(variables, param, structure,isContinuous,dataset)
+
+    iris = datasets.load_iris()
+    X = iris.data  
+    y = iris.target
+    #print(X)
+    #print(y)
+    indx = [i for i in range(len(y))]
+    random.shuffle(indx)
+    totaltrainsample = int(0.8*len(y))
+    #print(X[indx[0:totaltrainsample],1])
+    #print(y[indx[0:totaltrainsample]])
+    print(totaltrainsample)
+    structure = [1,1,0,1,0,0,1,0,0,0]
+    dataset = pd.DataFrame({"y":y[indx[0:totaltrainsample]],"x1":X[indx[0:totaltrainsample],0],"x2":X[indx[0:totaltrainsample],1],"x3":X[indx[0:totaltrainsample],2],"x4":X[indx[0:totaltrainsample],3]})
+    variables = ['y','x1','x2','x3','x4']
+    isContinuous=[False,True,True,True,True]
     dataset = addMissingData(dataset, variables, isContinuous)
-    print(dataset)
     param = getParameters(structure,dataset,variables,isContinuous)
-    print(param)
-    getJointprobability(variables, param, structure,isContinuous)
+    print(dataset.shape[0])
+    #testset = 
