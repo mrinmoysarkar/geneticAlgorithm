@@ -182,6 +182,8 @@ def getParameters(structure,dataset,variables,isContinuous):
   
 def getFactor(variables,parents,parameter,isContinuous,sample,varname,variscont,variableindex):
     if (not parents) or isContinuous[0]:
+        #print(isContinuous)
+        #print(parameter)
         if variscont:
             if not parents:
                 x = sample[variableindex]
@@ -227,20 +229,43 @@ def getProbabilityForGaussiandist(x,mu,var):
     return A*np.exp(-((x-mu)**2)/(2*var))
 
 def getJointprobability(variables, param, structure, isContinuous,samples):
+    prob = []
     for k in range(samples.shape[0]):
         p = 1.0;
         for i in range(len(variables)):
             parents=[]
             isconti=[]
             for j in range(i):
-                if structure[j+i-1]:
+                if structure[j+int((i*(i-1))/2)]:
                     parents.append(variables[j])
                     isconti.append(isContinuous[j])
             sample = samples.iloc[k,:] #pd.DataFrame({"x1":[0],"x2":[1],"x3":[0],"x4":[1]});
+            #print(parents)
             factor = getFactor(variables,parents,param[i],isconti,sample,variables[i],isContinuous[i],i)
             if not math.isnan(float(str(factor))):
                 p *= factor
-        print(p)
+        #print(p)
+        prob.append(p)
+    return prob
+
+def predict(noofclass,variables, param, structure, isContinuous,samples):
+    output = []
+    for i in range(samples.shape[0]):
+        p=[]
+        for j in range(noofclass):
+            sample = pd.DataFrame({variables[0]:[j]})
+            for l in range(len(variables)-1):
+                temp = pd.DataFrame({variables[l+1]:[samples[variables[l+1]][i]]})
+                sample = pd.concat([sample,temp],axis=1)
+            #print(sample)
+            prob = getJointprobability(variables, param, structure, isContinuous,sample)
+            if prob:
+                p.append(prob[0])
+        output.append(p.index(max(p)))
+    return output
+
+
+
 
 if __name__ == '__main__':
 #    dataset = pd.DataFrame({"x1":[7,7,8,8,8],"x2":[3,6,6,6,3],"x3":[5,6,6,6,5]})
@@ -269,12 +294,18 @@ if __name__ == '__main__':
     totaltrainsample = int(0.8*len(y))
     #print(X[indx[0:totaltrainsample],1])
     #print(y[indx[0:totaltrainsample]])
-    print(totaltrainsample)
-    structure = [1,1,0,1,0,0,1,0,0,0]
+    #print(totaltrainsample)
+    structure = [1,1,0,1,1,0,1,0,1,0]
     dataset = pd.DataFrame({"y":y[indx[0:totaltrainsample]],"x1":X[indx[0:totaltrainsample],0],"x2":X[indx[0:totaltrainsample],1],"x3":X[indx[0:totaltrainsample],2],"x4":X[indx[0:totaltrainsample],3]})
     variables = ['y','x1','x2','x3','x4']
     isContinuous=[False,True,True,True,True]
     dataset = addMissingData(dataset, variables, isContinuous)
     param = getParameters(structure,dataset,variables,isContinuous)
-    print(dataset.shape[0])
-    #testset = 
+    #print(param)
+
+    testset = pd.DataFrame({"y":y[indx[totaltrainsample:len(y)]],"x1":X[indx[totaltrainsample:len(y)],0],"x2":X[indx[totaltrainsample:len(y)],1],"x3":X[indx[totaltrainsample:len(y)],2],"x4":X[indx[totaltrainsample:len(y)],3]})
+    ytrue = y[indx[totaltrainsample:len(y)]]
+    noofclass = 3
+    ypredict = predict(noofclass,variables, param, structure, isContinuous,testset)
+    print(ypredict-ytrue)
+    print(len(ypredict-ytrue))
