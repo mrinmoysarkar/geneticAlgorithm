@@ -264,7 +264,53 @@ def predict(noofclass,variables, param, structure, isContinuous,samples):
         output.append(p.index(max(p)))
     return output
 
+def getSize(variables,structure,isContinuous,samples):
+    s = 0
+    for i in range(len(variables)):
+        hasParent = False
+        hasContinusParent = False
+        size = 1
+        for j in range(i):
+            if structure[j+int((i*(i-1))/2)]:
+                hasParent = True
+                if isContinuous[j]:
+                    hasContinusParent = True
+                    break
+                else:
+                    data = samples[variables[j]]
+                    data = data.unique()
+                    size *= len(data)
+        if isContinuous[i]:
+            if hasParent:
+                if hasContinusParent:
+                    size *= 4
+                else:
+                    size *= 2
+            else:
+                size *= 2
+        else:
+            data = samples[variables[i]]
+            data = data.unique()
+            size *= (len(data)-1)
+        s += size
+    return s
 
+
+def getScore(variables, param, structure, isContinuous,samples):
+    score = 0
+    N = samples.shape[0]
+    size = getSize(variables,structure,isContinuous,samples)
+    for i in range(N):
+        p=[]
+        sample = pd.DataFrame({variables[0]:[samples[variables[0]][i]]})
+        for l in range(len(variables)-1):
+            temp = pd.DataFrame({variables[l+1]:[samples[variables[l+1]][i]]})
+            sample = pd.concat([sample,temp],axis=1)
+            #print(sample)
+        prob = getJointprobability(variables, param, structure, isContinuous,sample)
+        if prob:
+            score += np.log2(prob[0])
+    return score - (size/2.0)*np.log2(N)
 
 
 if __name__ == '__main__':
@@ -309,3 +355,5 @@ if __name__ == '__main__':
     ypredict = predict(noofclass,variables, param, structure, isContinuous,testset)
     print(ypredict-ytrue)
     print(len(ypredict-ytrue))
+    print(getScore(variables, param, structure, isContinuous,testset))
+    
