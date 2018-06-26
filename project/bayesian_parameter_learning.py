@@ -193,6 +193,7 @@ def getFactor(variables,parents,parameter,isContinuous,sample,varname,variscont,
                 mu = mu[0]
                 var = parameter['var']
                 var = var[0][0]
+                print('x mu var',x,mu,var)
                 factor = getProbabilityForGaussiandist(x,mu,var)
                 return factor
             else:
@@ -210,6 +211,7 @@ def getFactor(variables,parents,parameter,isContinuous,sample,varname,variscont,
                 mu = mu1 + np.matmul(var2,(a-mu2))
                 var = parameter['var']
                 var = var[0]
+                print('x mu var',x,mu,var)
                 factor = getProbabilityForGaussiandist(x,mu,var)
                 return factor
         else:
@@ -231,6 +233,7 @@ def getProbabilityForGaussiandist(x,mu,var):
     return A*np.exp(-((x-mu)**2)/(2*var))
 
 def getJointprobability(variables, param, structure, isContinuous,samples):
+    print(param)
     prob = []
     for k in range(samples.shape[0]):
         p = 1.0;
@@ -244,29 +247,14 @@ def getJointprobability(variables, param, structure, isContinuous,samples):
             sample = samples.iloc[k,:] #pd.DataFrame({"x1":[0],"x2":[1],"x3":[0],"x4":[1]});
             #print(parents)
             factor = getFactor(variables,parents,param[i],isconti,sample,variables[i],isContinuous[i],i)
+            print('factor',factor)
             if not math.isnan(float(str(factor))):
                 p *= factor
-        #print(p)
+        print(p)
         prob.append(p)
     return prob
 
 def predict(noofclass,variables, param, structure, isContinuous,samples):
-    output = []
-    for i in range(samples.shape[0]):
-        p=[]
-        for j in range(noofclass):
-            sample = pd.DataFrame({variables[0]:[j]})
-            for l in range(len(variables)-1):
-                temp = pd.DataFrame({variables[l+1]:[samples[variables[l+1]][i]]})
-                sample = pd.concat([sample,temp],axis=1)
-            #print(sample)
-            prob = getJointprobability(variables, param, structure, isContinuous,sample)
-            if prob:
-                p.append(prob[0])
-        output.append(p.index(max(p)))
-    return output
-
-def predict_multi(noofclass,variables, param, structure, isContinuous,samples):
     output = []
     for i in range(samples.shape[0]):
         p=[]
@@ -318,7 +306,8 @@ def getScore(variables, param, structure, isContinuous,samples):
     score = 0
     N = samples.shape[0]
     size = getSize(variables,structure,isContinuous,samples)
-    for i in range(N):
+    print('size',size)
+    for i in range(1):
         p=[]
         sample = pd.DataFrame({variables[0]:[samples[variables[0]][i]]})
         for l in range(len(variables)-1):
@@ -326,6 +315,8 @@ def getScore(variables, param, structure, isContinuous,samples):
             sample = pd.concat([sample,temp],axis=1)
             #print(sample)
         prob = getJointprobability(variables, param, structure, isContinuous,sample)
+        print(prob)
         if prob:
             score += np.log2(prob[0])
-    return score - (size/2.0)*np.log2(N)
+    score  = score - (size/2.0)*np.log2(N)
+    return score

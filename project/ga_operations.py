@@ -228,12 +228,14 @@ def runGA(noOfgeneration,popSize,stringLen,var,pc,pm,scoreFunc,q):
     scoresAvg[0] += avgScore
     scoresMax[0] += maxScore   
     for i in range(noOfgeneration-1):
+        print("regenerate start")
         pop = reGenerate(pop,popSize,var,scoreFunc,stringLen,pc,pm)
+        print("regenerate complete")
         popScore,maxScore,avgScore = getStatisticOfGen(pop,popSize,scoreFunc)
         scoresAvg[i+1] += avgScore
         scoresMax[i+1] += maxScore
         print("generation: ",(i+1))
     #q.put(scoresAvg) 
-    plt.plot(scoresAvg)
-    plt.show()
+    #plt.plot(scoresAvg)
+    #plt.show()
     return pop
