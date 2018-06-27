@@ -110,6 +110,47 @@ def load_breast_data():
  	ytrue = y[indx[totaltrainsample:len(y)]]
  	return noofclass,variables,isContinuous,dataset,testset,ytrue
 
+def load_uav_state_data():
+	train_data_df = pd.read_json('dataset.json')
+	dataset = train_data_df.reset_index(drop=True)
+	dataset = dataset.dropna()
+	state = dataset['state']
+	state = state.replace('Hold',0)
+	state = state.replace('Fly Orbit and Observe',1)
+	state = state.replace('Fly Search Pattern',2)
+	state = state.replace('Survey Target',3)
+	state = state.astype(int)
+	y = state
+	noOffeature = 9
+	noofclass = 4
+ 	variables = []
+ 	isContinuous = []
+ 	variables.append('y')
+ 	isContinuous.append(False)
+ 	indx = [i for i in range(len(y))]
+	random.shuffle(indx)
+	totaltrainsample = int(0.8*len(y))
+	trainset = pd.DataFrame({'y':state[indx[0:totaltrainsample]],'x1':dataset['roll'][indx[0:totaltrainsample]],\
+    	'x2':dataset['pitch'][indx[0:totaltrainsample]],'x3':dataset['yaw'][indx[0:totaltrainsample]],\
+    	'x4':dataset['rollspeed'][indx[0:totaltrainsample]],'x5':dataset['pitchspeed'][indx[0:totaltrainsample]],\
+    	'x6':dataset['yawspeed'][indx[0:totaltrainsample]],'x7':dataset['xacc'][indx[0:totaltrainsample]],\
+    	'x8':dataset['yacc'][indx[0:totaltrainsample]],'x9':dataset['zacc'][indx[0:totaltrainsample]]})
+ 	for i in range(noOffeature):
+ 		var = 'x'+str(i+1)
+ 		variables.append(var)
+ 		isContinuous.append(True)
+ 	testset = pd.DataFrame({'y':state[indx[totaltrainsample:len(y)]],'x1':dataset['roll'][indx[totaltrainsample:len(y)]],\
+    	'x2':dataset['pitch'][indx[totaltrainsample:len(y)]],'x3':dataset['yaw'][indx[totaltrainsample:len(y)]],\
+    	'x4':dataset['rollspeed'][indx[totaltrainsample:len(y)]],'x5':dataset['pitchspeed'][indx[totaltrainsample:len(y)]],\
+    	'x6':dataset['yawspeed'][indx[totaltrainsample:len(y)]],'x7':dataset['xacc'][indx[totaltrainsample:len(y)]],\
+    	'x8':dataset['yacc'][indx[totaltrainsample:len(y)]],'x9':dataset['zacc'][indx[totaltrainsample:len(y)]]})
+ 	#print(y)
+ 	ytrue = list(y[indx[totaltrainsample:len(y)]])
+ 	return noofclass,variables,isContinuous,trainset,testset,ytrue
+
+
+
+
 if __name__ == '__main__':
 #    dataset = pd.DataFrame({"x1":[7,7,8,8,8],"x2":[3,6,6,6,3],"x3":[5,6,6,6,5]})
 #    variables = ['x1','x2','x3']
@@ -136,8 +177,11 @@ if __name__ == '__main__':
     #print(X)
     #print(y)
     # indx = [i for i in range(len(y))]
+    noofclass,variables,isContinuous,dataset,testset,ytrue = load_uav_state_data()
+    print(ytrue)
 
-    nooftrial = 1
+
+    nooftrial = 0
     pred_correct = 0
     for tr in range(nooftrial):
     	# random.shuffle(indx)
@@ -162,7 +206,8 @@ if __name__ == '__main__':
     #print(len(ypredict-ytrue))
     #print(bpl.getScore(variables, param, structure, isContinuous,testset))
     	#noofclass,variables,isContinuous,dataset,testset,ytrue = load_iris_data()
-    	noofclass,variables,isContinuous,dataset,testset,ytrue = load_breast_data()
+    	#noofclass,variables,isContinuous,dataset,testset,ytrue = load_breast_data()
+    	noofclass,variables,isContinuous,dataset,testset,ytrue = load_uav_state_data()
     	scorefunc = scoreFunction(dataset,variables,isContinuous)
     	noOfvar = len(variables)
     	popSize = 10
@@ -187,7 +232,7 @@ if __name__ == '__main__':
     	print(correct_prediction)
     	print(len(ypredict-ytrue))
     	pred_correct += (float(correct_prediction)/len(diff))*100.0
-    print("correct prediction % :", pred_correct/nooftrial)
+    #print("correct prediction % :", pred_correct/nooftrial)
 
     # p1 = Process(target=gaop.runGA, args=(noOfgeneration,popSize,stringLen,variables,pc,pm,scorefunc,q))
     # p1.start()
