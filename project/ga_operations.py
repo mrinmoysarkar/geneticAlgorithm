@@ -46,12 +46,12 @@ def getBestStructure(pop,popSize,var,scoreFunc):
         score[i] = scoreFunc.score(pop[i])
     return pop[np.argmax(score)], np.max(score)
 
-def selection(pop,popSize,var,scoreFunc):
-    score=np.zeros(popSize)
-    for i in range(popSize):
-        #model = get_structure_from_string(pop[i],var)
-        #score[i] = scoreFunc.score(model)
-        score[i] = scoreFunc.score(pop[i])
+def selection(pop,popSize,var,score):
+    # score=np.zeros(popSize)
+    # for i in range(popSize):
+    #     #model = get_structure_from_string(pop[i],var)
+    #     #score[i] = scoreFunc.score(model)
+    #     score[i] = scoreFunc.score(pop[i])
     popScore = np.copy(score)
     avgScore = np.mean(score)
     noOfsamples = 5;
@@ -108,14 +108,14 @@ def mutation(child,pm,stringLen):
                 child[j] = 1;
     return child
 
-def replace(pop,popSize,stringLen,scoreFunc):
+def replace(pop,popSize,stringLen,score):
     if pop.shape[0] == popSize:
         return pop
-    score=np.zeros(pop.shape[0])
-    for i in range(pop.shape[0]):
-        #model = get_structure_from_string(pop[i],var)
-        #score[i] = scoreFunc.score(model)
-        score[i] = scoreFunc.score(pop[i])
+    # score=np.zeros(pop.shape[0])
+    # for i in range(pop.shape[0]):
+    #     #model = get_structure_from_string(pop[i],var)
+    #     #score[i] = scoreFunc.score(model)
+    #     score[i] = scoreFunc.score(pop[i])
     newpop = np.zeros([popSize,stringLen])
     for i in range(popSize):
         i1 = np.argmax(score)
@@ -124,17 +124,19 @@ def replace(pop,popSize,stringLen,scoreFunc):
         pop = np.delete(pop,i1,axis=0)
     return newpop
     
-def reGenerate(pop,popSize,var,scoreFunc,stringLen,pc,pm):
+def reGenerate(pop,popSize,var,score,scoreFunc,stringLen,pc,pm):
     tempop = np.copy(pop)
     for i in range(int(popSize/2)):
-        p1,p2,avgScore,popScore = selection(pop,popSize,var,scoreFunc)
+        p1,p2,avgScore,popScore = selection(pop,popSize,var,score)
         child1,child2 = crossover(pop,p1,p2,pc,stringLen)
         if (len(child1) != 0) and (len(child2) != 0):
             child1 = mutation(child1,pm,stringLen)
             child2 = mutation(child2,pm,stringLen)
+            score.append(scoreFunc.score(child1))
             tempop = np.append(tempop,[child1],axis=0)
+            score.append(scoreFunc.score(child2))
             tempop = np.append(tempop,[child2],axis=0)
-    pop = replace(tempop,popSize,stringLen,scoreFunc)
+    pop = replace(tempop,popSize,stringLen,score)
     return pop
 
 
@@ -229,7 +231,7 @@ def runGA(noOfgeneration,popSize,stringLen,var,pc,pm,scoreFunc,q):
     scoresMax[0] += maxScore   
     for i in range(noOfgeneration-1):
         print("regenerate start")
-        pop = reGenerate(pop,popSize,var,scoreFunc,stringLen,pc,pm)
+        pop = reGenerate(pop,popSize,var,popScore,scoreFunc,stringLen,pc,pm)
         print("regenerate complete")
         popScore,maxScore,avgScore = getStatisticOfGen(pop,popSize,scoreFunc)
         scoresAvg[i+1] += avgScore

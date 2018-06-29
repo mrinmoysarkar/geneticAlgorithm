@@ -86,6 +86,8 @@ def getParam(datatable,variables,isContinuous):
                 newdatatable = newdatatable.drop(variables[1],axis=1)
                 newvariables = list(variables)
                 state = discretedata[i]
+                #print('states:')
+                #print(state)
                 newisContinuous = list(isContinuous)
                 discretevar = False
                 if len(newisContinuous)>=3 and (not newisContinuous[2]):
@@ -93,11 +95,15 @@ def getParam(datatable,variables,isContinuous):
                 del newvariables[1]
                 del newisContinuous[1]
                 if not discretevar:
+                    newdatatable = newdatatable.reset_index(drop=True)
                     param[state] = getParam(newdatatable,newvariables,newisContinuous)
                 else:
+                    newdatatable = newdatatable.reset_index(drop=True)
                     param[state] = {discretevar:getParam(newdatatable,newvariables,newisContinuous)}
         else:
             if len(variables) > 1:
+                #print("data$$$$$$$$$$$")
+                #print(datatable)
                 mu = np.array(datatable.mean()) 
                 mu1 = mu[0]
                 mu2 = mu[1:]
@@ -106,6 +112,7 @@ def getParam(datatable,variables,isContinuous):
                 var12 = var[0][1:]
                 var21 = np.transpose(var12)
                 var22 = var[1:,1:]  
+                #print(var22)
                 var22_inv = np.linalg.pinv(var22)
                 var2 = np.matmul(var12,var22_inv)
                 var = var11-np.matmul(var2,var21)
@@ -141,8 +148,10 @@ def getParam(datatable,variables,isContinuous):
                 del newvariables[1]
                 del newisContinuous[1]
                 if not discretevar:
+                    newdatatable = newdatatable.reset_index(drop=True)
                     param[state] = getParam(newdatatable,newvariables,newisContinuous)
                 else:
+                    newdatatable = newdatatable.reset_index(drop=True)
                     param[state] = {discretevar:getParam(newdatatable,newvariables,newisContinuous)}
     return param
     
@@ -165,6 +174,8 @@ def getParameters(structure,dataset,variables,isContinuous):
                 hasParent = True
             indx = indx+1
         d = pd.DataFrame(d)
+        #print("root data")
+        #print(d)
         # if newisContinuous[0] == False and len(newVariables)>1:
         #     allexperiment = [0]*len(variables)
         #     indx1 = 0
@@ -174,10 +185,13 @@ def getParameters(structure,dataset,variables,isContinuous):
         #print(newisContinuous)
         if hasParent:
             if newisContinuous[1]:
+                d = d.reset_index(drop=True)
                 param = getParam(d,newVariables,newisContinuous)
             else:
+                d = d.reset_index(drop=True)
                 param[newVariables[1]] = getParam(d,newVariables,newisContinuous)
         else:
+            d = d.reset_index(drop=True)
             param = getParam(d,newVariables,newisContinuous)
         parameters.append(param)
     return parameters
@@ -193,7 +207,7 @@ def getFactor(variables,parents,parameter,isContinuous,sample,varname,variscont,
                 mu = mu[0]
                 var = parameter['var']
                 var = var[0][0]
-                print('x mu var',x,mu,var)
+                #print('x mu var',x,mu,var)
                 factor = getProbabilityForGaussiandist(x,mu,var)
                 return factor
             else:
@@ -211,7 +225,7 @@ def getFactor(variables,parents,parameter,isContinuous,sample,varname,variscont,
                 mu = mu1 + np.matmul(var2,(a-mu2))
                 var = parameter['var']
                 var = var[0]
-                print('x mu var',x,mu,var)
+                #print('x mu var',x,mu,var)
                 factor = getProbabilityForGaussiandist(x,mu,var)
                 return factor
         else:
@@ -233,7 +247,7 @@ def getProbabilityForGaussiandist(x,mu,var):
     return A*np.exp(-((x-mu)**2)/(2*var))
 
 def getJointprobability(variables, param, structure, isContinuous,samples):
-    print(param)
+    #print(param)
     prob = []
     for k in range(samples.shape[0]):
         p = 1.0;
@@ -247,10 +261,10 @@ def getJointprobability(variables, param, structure, isContinuous,samples):
             sample = samples.iloc[k,:] #pd.DataFrame({"x1":[0],"x2":[1],"x3":[0],"x4":[1]});
             #print(parents)
             factor = getFactor(variables,parents,param[i],isconti,sample,variables[i],isContinuous[i],i)
-            print('factor',factor)
+            #print('factor',factor)
             if not math.isnan(float(str(factor))):
                 p *= factor
-        print(p)
+        #print(p)
         prob.append(p)
     return prob
 
@@ -306,8 +320,8 @@ def getScore(variables, param, structure, isContinuous,samples):
     score = 0
     N = samples.shape[0]
     size = getSize(variables,structure,isContinuous,samples)
-    print('size',size)
-    for i in range(1):
+    #print('size',size)
+    for i in range(N):
         p=[]
         sample = pd.DataFrame({variables[0]:[samples[variables[0]][i]]})
         for l in range(len(variables)-1):
@@ -315,8 +329,24 @@ def getScore(variables, param, structure, isContinuous,samples):
             sample = pd.concat([sample,temp],axis=1)
             #print(sample)
         prob = getJointprobability(variables, param, structure, isContinuous,sample)
-        print(prob)
+        #print(prob)
         if prob:
             score += np.log2(prob[0])
     score  = score - (size/2.0)*np.log2(N)
     return score
+
+def getbatchfactor(variables, param, structure, isContinuous,samples,q):
+    score = 0
+    N = samples.shape[0]
+    for i in range(N):
+        p=[]
+        sample = pd.DataFrame({variables[0]:[samples[variables[0]][i]]})
+        for l in range(len(variables)-1):
+            temp = pd.DataFrame({variables[l+1]:[samples[variables[l+1]][i]]})
+            sample = pd.concat([sample,temp],axis=1)
+            #print(sample)
+        prob = getJointprobability(variables, param, structure, isContinuous,sample)
+        #print(prob)
+        if prob:
+            score += np.log2(prob[0])
+    q.put(score)

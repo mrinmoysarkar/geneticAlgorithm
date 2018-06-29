@@ -1,5 +1,6 @@
 import bayesian_parameter_learning as bpl
 import ga_operations as gaop
+import load_dataset as lddata
 from sklearn import datasets
 import random
 import pandas as pd
@@ -16,10 +17,37 @@ class scoreFunction:
 		self.isContinuous = isContinuous
 	
 	def score(self,structure):
+		startTime = time.time()
 		#print(structure)
 		param = bpl.getParameters(structure,self.data,self.variables,self.isContinuous)
 		#print(param)
-		scor = bpl.getScore(self.variables, param, structure, self.isContinuous,self.data)
+		scor = 0#bpl.getScore(self.variables, param, structure, self.isContinuous, self.data)
+		noofcpu = 12
+		N = self.data.shape[0]
+		partision_size = int(self.data.shape[0]/noofcpu)
+		data1 = self.data.iloc[0]
+		q = Queue()
+		p = []
+		for i in range(noofcpu-1):
+			samples = self.data.iloc[i*partision_size:(i+1)*partision_size,:]
+			samples = samples.reset_index(drop=True)
+			samples = samples.dropna()
+			p.append(Process(target=bpl.getbatchfactor, args=(self.variables, param, structure, self.isContinuous,samples,q)))
+			p[i].start()
+		samples = self.data.iloc[(noofcpu-1)*partision_size:N,:]
+		samples = samples.reset_index(drop=True)
+		samples = samples.dropna()
+		p.append(Process(target=bpl.getbatchfactor, args=(self.variables, param, structure, self.isContinuous,samples,q)))
+		p[noofcpu-1].start()
+		for i in range(noofcpu):
+			scor += q.get(True)
+		for i in range(noofcpu):
+			p[i].join()
+		size = bpl.getSize(self.variables,structure,self.isContinuous,self.data)
+		scor  = scor - (size/2.0)*np.log2(N)
+		endTime = time.time()
+		workTime =  endTime - startTime
+		print("worktime",workTime)
 		return scor
 	
 	def calc_param(self,structures):
@@ -34,19 +62,20 @@ class scoreFunction:
 	def calc_weight(self):
 		n = self.structures.shape[0]
 		self.weight = []
-		for i in range(1):
+		for i in range(n):
 			param = self.parameters[i]
 			scor = bpl.getScore(self.variables, param, self.structures[i], self.isContinuous,self.data)
-			print(scor)
+			#print(scor)
 			self.weight.append(scor)
 		sumw = sum(self.weight)
 		self.weight = [x / sumw for x in self.weight]
 		print(self.weight)
 	
 	def predict_multi(self,noofclass,samples):
+		ts = samples.shape[0]
 		output = []
 		n = self.structures.shape[0]
-		for i in range(samples.shape[0]):
+		for i in range(ts):
 			p = [] 
 			for j in range(noofclass):
 				sample = pd.DataFrame({self.variables[0]:[j]})
@@ -65,88 +94,7 @@ class scoreFunction:
 			output.append(p.index(max(p)))
 		return output
 
-def load_iris_data():
-	iris = datasets.load_iris()
-	X = iris.data  
-	y = iris.target
-	noofclass = 3
-	variables = ['y','x1','x2','x3','x4']
-	isContinuous=[False,True,True,True,True]
-	indx = [i for i in range(len(y))]
-	random.shuffle(indx)
-	totaltrainsample = int(0.8*len(y))
- 	dataset = pd.DataFrame({"y":y[indx[0:totaltrainsample]],"x1":X[indx[0:totaltrainsample],0],"x2":X[indx[0:totaltrainsample],1],"x3":X[indx[0:totaltrainsample],2],"x4":X[indx[0:totaltrainsample],3]})
-	testset = pd.DataFrame({"y":y[indx[totaltrainsample:len(y)]],"x1":X[indx[totaltrainsample:len(y)],0],"x2":X[indx[totaltrainsample:len(y)],1],"x3":X[indx[totaltrainsample:len(y)],2],"x4":X[indx[totaltrainsample:len(y)],3]})
-	ytrue = y[indx[totaltrainsample:len(y)]]
-	return noofclass,variables,isContinuous,dataset,testset,ytrue
 
-def load_breast_data():
-	breast_cancer = datasets.load_breast_cancer()
-	#wine = datasets.load_wine()
-	X = breast_cancer.data  
-	y = breast_cancer.target
-	noOffeature = X.shape[1]
-	noofclass = 2
- 	variables = []
- 	isContinuous = []
- 	variables.append('y')
- 	isContinuous.append(False)
- 	indx = [i for i in range(len(y))]
-	random.shuffle(indx)
-	totaltrainsample = int(0.8*len(y))
-	dataset = pd.DataFrame({"y":y[indx[0:totaltrainsample]]})
- 	for i in range(noOffeature):
- 		var = 'x'+str(i+1)
- 		variables.append(var)
- 		isContinuous.append(True)
- 		temp = pd.DataFrame({var:X[indx[0:totaltrainsample],i]})
- 		dataset = pd.concat([dataset,temp],axis=1)
- 		#dataset = dataset.reset_index(drop=True)
- 	testset = pd.DataFrame({"y":y[indx[totaltrainsample:len(y)]]})
- 	for i in range(noOffeature):
- 		var = 'x'+str(i+1)
- 		temp = pd.DataFrame({var:X[indx[totaltrainsample:len(y)],i]})
- 		testset = pd.concat([testset,temp],axis=1)
- 	ytrue = y[indx[totaltrainsample:len(y)]]
- 	return noofclass,variables,isContinuous,dataset,testset,ytrue
-
-def load_uav_state_data():
-	train_data_df = pd.read_json('dataset.json')
-	dataset = train_data_df.reset_index(drop=True)
-	dataset = dataset.dropna()
-	state = dataset['state']
-	state = state.replace('Hold',0)
-	state = state.replace('Fly Orbit and Observe',1)
-	state = state.replace('Fly Search Pattern',2)
-	state = state.replace('Survey Target',3)
-	state = state.astype(int)
-	y = state
-	noOffeature = 9
-	noofclass = 4
- 	variables = []
- 	isContinuous = []
- 	variables.append('y')
- 	isContinuous.append(False)
- 	indx = [i for i in range(len(y))]
-	random.shuffle(indx)
-	totaltrainsample = int(0.8*len(y))
-	trainset = pd.DataFrame({'y':state[indx[0:totaltrainsample]],'x1':dataset['roll'][indx[0:totaltrainsample]],\
-    	'x2':dataset['pitch'][indx[0:totaltrainsample]],'x3':dataset['yaw'][indx[0:totaltrainsample]],\
-    	'x4':dataset['rollspeed'][indx[0:totaltrainsample]],'x5':dataset['pitchspeed'][indx[0:totaltrainsample]],\
-    	'x6':dataset['yawspeed'][indx[0:totaltrainsample]],'x7':dataset['xacc'][indx[0:totaltrainsample]],\
-    	'x8':dataset['yacc'][indx[0:totaltrainsample]],'x9':dataset['zacc'][indx[0:totaltrainsample]]})
- 	for i in range(noOffeature):
- 		var = 'x'+str(i+1)
- 		variables.append(var)
- 		isContinuous.append(True)
- 	testset = pd.DataFrame({'y':state[indx[totaltrainsample:len(y)]],'x1':dataset['roll'][indx[totaltrainsample:len(y)]],\
-    	'x2':dataset['pitch'][indx[totaltrainsample:len(y)]],'x3':dataset['yaw'][indx[totaltrainsample:len(y)]],\
-    	'x4':dataset['rollspeed'][indx[totaltrainsample:len(y)]],'x5':dataset['pitchspeed'][indx[totaltrainsample:len(y)]],\
-    	'x6':dataset['yawspeed'][indx[totaltrainsample:len(y)]],'x7':dataset['xacc'][indx[totaltrainsample:len(y)]],\
-    	'x8':dataset['yacc'][indx[totaltrainsample:len(y)]],'x9':dataset['zacc'][indx[totaltrainsample:len(y)]]})
- 	#print(y)
- 	ytrue = list(y[indx[totaltrainsample:len(y)]])
- 	return noofclass,variables,isContinuous,trainset,testset,ytrue
 
 
 
@@ -177,11 +125,11 @@ if __name__ == '__main__':
     #print(X)
     #print(y)
     # indx = [i for i in range(len(y))]
-    noofclass,variables,isContinuous,dataset,testset,ytrue = load_uav_state_data()
-    print(ytrue)
+    #noofclass,variables,isContinuous,dataset,testset,ytrue = lddata.load_uav_state_data()
+    #print(ytrue)
+    #print(int(dataset.shape[0]/12))
 
-
-    nooftrial = 0
+    nooftrial = 1
     pred_correct = 0
     for tr in range(nooftrial):
     	# random.shuffle(indx)
@@ -207,11 +155,11 @@ if __name__ == '__main__':
     #print(bpl.getScore(variables, param, structure, isContinuous,testset))
     	#noofclass,variables,isContinuous,dataset,testset,ytrue = load_iris_data()
     	#noofclass,variables,isContinuous,dataset,testset,ytrue = load_breast_data()
-    	noofclass,variables,isContinuous,dataset,testset,ytrue = load_uav_state_data()
+    	noofclass,variables,isContinuous,dataset,testset,ytrue = lddata.load_uav_state_data()
     	scorefunc = scoreFunction(dataset,variables,isContinuous)
     	noOfvar = len(variables)
     	popSize = 10
-    	noOfgeneration = 10
+    	noOfgeneration = 1
     	pm = 0.01
     	pc = 0.9
     	stringLen = int(noOfvar*(noOfvar-1)/2)
@@ -220,18 +168,21 @@ if __name__ == '__main__':
     #startTime = time.time()
     #create a Queue to share results
     	q = 0 #Queue()
-    	#structures = gaop.runGA(noOfgeneration,popSize,stringLen,variables,pc,pm,scorefunc,q)
+    	structures = gaop.runGA(noOfgeneration,popSize,stringLen,variables,pc,pm,scorefunc,q)
     	#print(structures)
-    	scorefunc.calc_param(pop)#structures)
+    	#print(pop)
+    	scorefunc.calc_param(structures)
     	print("param calc done")
     	scorefunc.calc_weight()
     	print("weight done")
-    	ypredict = scorefunc.predict_multi(noofclass,testset)
-    	diff = list(ypredict-ytrue)
-    	correct_prediction = diff.count(0)
-    	print(correct_prediction)
-    	print(len(ypredict-ytrue))
-    	pred_correct += (float(correct_prediction)/len(diff))*100.0
+    	#ypredict = scorefunc.predict_multi(noofclass,testset)
+    	#print(ypredict)
+    	#print(ytrue[0:10])
+    	# diff = list(ypredict-ytrue)
+    	# correct_prediction = diff.count(0)
+    	# print(correct_prediction)
+    	# print(len(ypredict-ytrue))
+    	# pred_correct += (float(correct_prediction)/len(diff))*100.0
     #print("correct prediction % :", pred_correct/nooftrial)
 
     # p1 = Process(target=gaop.runGA, args=(noOfgeneration,popSize,stringLen,variables,pc,pm,scorefunc,q))
