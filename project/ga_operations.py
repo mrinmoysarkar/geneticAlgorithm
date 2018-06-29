@@ -131,7 +131,7 @@ def replace(pop,popSize,stringLen,score):
         score = np.delete(score,i1)
         newpop[i] = pop[i1]
         pop = np.delete(pop,i1,axis=0)
-    return newpop, newscore
+    return newpop,newscore
     
 def reGenerate(pop,popSize,var,score,scoreFunc,stringLen,pc,pm):
     tempop = np.copy(pop)
@@ -141,11 +141,11 @@ def reGenerate(pop,popSize,var,score,scoreFunc,stringLen,pc,pm):
         if (len(child1) != 0) and (len(child2) != 0):
             child1 = mutation(child1,pm,stringLen)
             child2 = mutation(child2,pm,stringLen)
-            np.append(score,scoreFunc.score(child1))
+            score = np.append(score,scoreFunc.score(child1),axis=0)
             tempop = np.append(tempop,[child1],axis=0)
-            np.append(score,scoreFunc.score(child2))
+            score = np.append(score,scoreFunc.score(child2),axis=0)
             tempop = np.append(tempop,[child2],axis=0)
-    pop, score = replace(tempop,popSize,stringLen,score)
+    pop,score = replace(tempop,popSize,stringLen,score)
     return pop, score
 
 
@@ -236,12 +236,12 @@ def runGA(noOfgeneration,popSize,stringLen,var,pc,pm,scoreFunc,q):
     scoresMax = np.zeros(noOfgeneration)
     pop = generate_pop(popSize,stringLen)
     popScore,maxScore,avgScore = getStatisticOfGen(pop,popSize,scoreFunc)
-    pop = replace(pop,popSize,stringLen,popScore)
+    pop,popScore = replace(pop,popSize,stringLen,popScore)
     scoresAvg[0] += avgScore
     scoresMax[0] += maxScore   
     for i in range(noOfgeneration-1):
         print("regenerate start")
-        pop, popScore= reGenerate(pop,popSize,var,popScore,scoreFunc,stringLen,pc,pm)
+        pop,popScore = reGenerate(pop,popSize,var,popScore,scoreFunc,stringLen,pc,pm) 
         print("regenerate complete")
         #popScore,maxScore,avgScore = getStatisticOfGen(pop,popSize,scoreFunc)
         scoresAvg[i+1] = np.mean(popScore)
