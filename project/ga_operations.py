@@ -141,9 +141,9 @@ def reGenerate(pop,popSize,var,score,scoreFunc,stringLen,pc,pm):
         if (len(child1) != 0) and (len(child2) != 0):
             child1 = mutation(child1,pm,stringLen)
             child2 = mutation(child2,pm,stringLen)
-            score = np.append(score,scoreFunc.score(child1),axis=0)
+            score = np.append(score,scoreFunc.score(child1))
             tempop = np.append(tempop,[child1],axis=0)
-            score = np.append(score,scoreFunc.score(child2),axis=0)
+            score = np.append(score,scoreFunc.score(child2))
             tempop = np.append(tempop,[child2],axis=0)
     pop,score = replace(tempop,popSize,stringLen,score)
     return pop, score
