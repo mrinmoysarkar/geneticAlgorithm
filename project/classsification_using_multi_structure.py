@@ -22,7 +22,7 @@ class scoreFunction:
 		param = bpl.getParameters(structure,self.data,self.variables,self.isContinuous)
 		#print(param)
 		scor = 0#bpl.getScore(self.variables, param, structure, self.isContinuous, self.data)
-		noofcpu = 12
+		noofcpu = 30
 		N = self.data.shape[0]
 		partision_size = int(self.data.shape[0]/noofcpu)
 		data1 = self.data.iloc[0]
@@ -59,12 +59,12 @@ class scoreFunction:
 			#print(param)
 			self.parameters.append(param)
 	
-	def calc_weight(self):
+	def calc_weight(self,scores):
 		n = self.structures.shape[0]
 		self.weight = []
 		for i in range(n):
-			param = self.parameters[i]
-			scor = bpl.getScore(self.variables, param, self.structures[i], self.isContinuous,self.data)
+			#param = self.parameters[i]
+			scor = scores[i]#bpl.getScore(self.variables, param, self.structures[i], self.isContinuous,self.data)
 			#print(scor)
 			self.weight.append(scor)
 		sumw = sum(self.weight)
@@ -168,12 +168,13 @@ if __name__ == '__main__':
     #startTime = time.time()
     #create a Queue to share results
     	q = 0 #Queue()
-    	structures = gaop.runGA(noOfgeneration,popSize,stringLen,variables,pc,pm,scorefunc,q)
+    	structures, popScore = gaop.runGA(noOfgeneration,popSize,stringLen,variables,pc,pm,scorefunc,q)
     	#print(structures)
     	#print(pop)
     	scorefunc.calc_param(structures)
     	print("param calc done")
-    	scorefunc.calc_weight()
+    	print(popScore)
+    	scorefunc.calc_weight(popScore)
     	print("weight done")
     	#ypredict = scorefunc.predict_multi(noofclass,testset)
     	#print(ypredict)

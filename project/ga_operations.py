@@ -109,6 +109,13 @@ def mutation(child,pm,stringLen):
     return child
 
 def replace(pop,popSize,stringLen,score):
+    i1 = np.argmax(score)
+    for i in range(score.shape[0]):
+        if np.isinf(score[i]):
+            pop[i] = pop[i1]
+            score[i] = score[i1]
+            print('inf')
+
     if pop.shape[0] == popSize:
         return pop
     # score=np.zeros(pop.shape[0])
@@ -227,6 +234,7 @@ def runGA(noOfgeneration,popSize,stringLen,var,pc,pm,scoreFunc,q):
     scoresMax = np.zeros(noOfgeneration)
     pop = generate_pop(popSize,stringLen)
     popScore,maxScore,avgScore = getStatisticOfGen(pop,popSize,scoreFunc)
+    pop = replace(pop,popSize,stringLen,popScore)
     scoresAvg[0] += avgScore
     scoresMax[0] += maxScore   
     for i in range(noOfgeneration-1):
@@ -240,4 +248,4 @@ def runGA(noOfgeneration,popSize,stringLen,var,pc,pm,scoreFunc,q):
     #q.put(scoresAvg) 
     #plt.plot(scoresAvg)
     #plt.show()
-    return pop
+    return pop, popScore
