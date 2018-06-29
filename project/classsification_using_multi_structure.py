@@ -129,7 +129,7 @@ if __name__ == '__main__':
     #print(ytrue)
     #print(int(dataset.shape[0]/12))
 
-    nooftrial = 1
+    nooftrial = 10
     pred_correct = 0
     for tr in range(nooftrial):
     	# random.shuffle(indx)
@@ -159,7 +159,7 @@ if __name__ == '__main__':
     	scorefunc = scoreFunction(dataset,variables,isContinuous)
     	noOfvar = len(variables)
     	popSize = 10
-    	noOfgeneration = 1
+    	noOfgeneration = 10
     	pm = 0.01
     	pc = 0.9
     	stringLen = int(noOfvar*(noOfvar-1)/2)
@@ -176,15 +176,15 @@ if __name__ == '__main__':
     	print(popScore)
     	scorefunc.calc_weight(popScore)
     	print("weight done")
-    	#ypredict = scorefunc.predict_multi(noofclass,testset)
-    	#print(ypredict)
-    	#print(ytrue[0:10])
-    	# diff = list(ypredict-ytrue)
-    	# correct_prediction = diff.count(0)
-    	# print(correct_prediction)
-    	# print(len(ypredict-ytrue))
-    	# pred_correct += (float(correct_prediction)/len(diff))*100.0
-    #print("correct prediction % :", pred_correct/nooftrial)
+    	ypredict = scorefunc.predict_multi(noofclass,testset)
+    	print(ypredict)
+    	print(ytrue[0:10])
+    	diff = list(ypredict-ytrue)
+    	correct_prediction = diff.count(0)
+    	print(correct_prediction)
+    	print(len(ypredict-ytrue))
+    	pred_correct += (float(correct_prediction)/len(diff))*100.0
+    print("correct prediction % :", pred_correct/nooftrial)
 
     # p1 = Process(target=gaop.runGA, args=(noOfgeneration,popSize,stringLen,variables,pc,pm,scorefunc,q))
     # p1.start()

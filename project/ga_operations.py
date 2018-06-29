@@ -117,19 +117,21 @@ def replace(pop,popSize,stringLen,score):
             print('inf')
 
     if pop.shape[0] == popSize:
-        return pop
+        return pop,score
     # score=np.zeros(pop.shape[0])
     # for i in range(pop.shape[0]):
     #     #model = get_structure_from_string(pop[i],var)
     #     #score[i] = scoreFunc.score(model)
     #     score[i] = scoreFunc.score(pop[i])
     newpop = np.zeros([popSize,stringLen])
+    newscore = np.zeros(popSize)
     for i in range(popSize):
         i1 = np.argmax(score)
+        newscore[i] = score[i1]
         score = np.delete(score,i1)
         newpop[i] = pop[i1]
         pop = np.delete(pop,i1,axis=0)
-    return newpop
+    return newpop, newscore
     
 def reGenerate(pop,popSize,var,score,scoreFunc,stringLen,pc,pm):
     tempop = np.copy(pop)
@@ -139,12 +141,12 @@ def reGenerate(pop,popSize,var,score,scoreFunc,stringLen,pc,pm):
         if (len(child1) != 0) and (len(child2) != 0):
             child1 = mutation(child1,pm,stringLen)
             child2 = mutation(child2,pm,stringLen)
-            score.append(scoreFunc.score(child1))
+            np.append(score,scoreFunc.score(child1))
             tempop = np.append(tempop,[child1],axis=0)
-            score.append(scoreFunc.score(child2))
+            np.append(score,scoreFunc.score(child2))
             tempop = np.append(tempop,[child2],axis=0)
-    pop = replace(tempop,popSize,stringLen,score)
-    return pop
+    pop, score = replace(tempop,popSize,stringLen,score)
+    return pop, score
 
 
 def getStatisticOfGen(pop,popSize,scoreFunc):
@@ -239,11 +241,11 @@ def runGA(noOfgeneration,popSize,stringLen,var,pc,pm,scoreFunc,q):
     scoresMax[0] += maxScore   
     for i in range(noOfgeneration-1):
         print("regenerate start")
-        pop = reGenerate(pop,popSize,var,popScore,scoreFunc,stringLen,pc,pm)
+        pop, popScore= reGenerate(pop,popSize,var,popScore,scoreFunc,stringLen,pc,pm)
         print("regenerate complete")
-        popScore,maxScore,avgScore = getStatisticOfGen(pop,popSize,scoreFunc)
-        scoresAvg[i+1] += avgScore
-        scoresMax[i+1] += maxScore
+        #popScore,maxScore,avgScore = getStatisticOfGen(pop,popSize,scoreFunc)
+        scoresAvg[i+1] = np.mean(popScore)
+        scoresMax[i+1] = np.max(popScore)
         print("generation: ",(i+1))
     #q.put(scoresAvg) 
     #plt.plot(scoresAvg)
