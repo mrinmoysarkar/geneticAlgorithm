@@ -52,6 +52,7 @@ def selection(pop,popSize,var,score):
     #     #model = get_structure_from_string(pop[i],var)
     #     #score[i] = scoreFunc.score(model)
     #     score[i] = scoreFunc.score(pop[i])
+    #print('score size',score.shape[0])
     popScore = np.copy(score)
     avgScore = np.mean(score)
     noOfsamples = 5;
@@ -135,16 +136,16 @@ def replace(pop,popSize,stringLen,score):
     
 def reGenerate(pop,popSize,var,score,scoreFunc,stringLen,pc,pm):
     tempop = np.copy(pop)
-    for i in range(int(popSize/2)):
-        p1,p2,avgScore,popScore = selection(pop,popSize,var,score)
-        child1,child2 = crossover(pop,p1,p2,pc,stringLen)
-        if (len(child1) != 0) and (len(child2) != 0):
-            child1 = mutation(child1,pm,stringLen)
-            child2 = mutation(child2,pm,stringLen)
-            score = np.append(score,scoreFunc.score(child1))
-            tempop = np.append(tempop,[child1],axis=0)
-            score = np.append(score,scoreFunc.score(child2))
-            tempop = np.append(tempop,[child2],axis=0)
+    #for i in range(int(popSize/2)):
+    p1,p2,avgScore,popScore = selection(pop,popSize,var,score)
+    child1,child2 = crossover(pop,p1,p2,pc,stringLen)
+    if (len(child1) != 0) and (len(child2) != 0):
+        child1 = mutation(child1,pm,stringLen)
+        child2 = mutation(child2,pm,stringLen)
+        score = np.append(score,scoreFunc.score(child1))
+        tempop = np.append(tempop,[child1],axis=0)
+        score = np.append(score,scoreFunc.score(child2))
+        tempop = np.append(tempop,[child2],axis=0)
     pop,score = replace(tempop,popSize,stringLen,score)
     return pop, score
 
@@ -248,6 +249,9 @@ def runGA(noOfgeneration,popSize,stringLen,var,pc,pm,scoreFunc,q):
         scoresMax[i+1] = np.max(popScore)
         print("generation: ",(i+1))
     #q.put(scoresAvg) 
-    #plt.plot(scoresAvg)
-    #plt.show()
+    plt.plot(scoresAvg)
+    plt.xlabel('No. of Generation')
+    plt.ylabel('Fitness(f)')
+    plt.title('Evolution of average score of the population')
+    plt.show()
     return pop, popScore

@@ -341,7 +341,7 @@ if __name__ == '__main__':
     #print(X[indx[0:totaltrainsample],1])
     #print(y[indx[0:totaltrainsample]])
     #print(totaltrainsample)
-    structure = [1,1,0,1,1,0,1,0,1,0]
+    structure = [1,1,0,1,0,0,1,0,0,0]
     dataset = pd.DataFrame({"y":y[indx[0:totaltrainsample]],"x1":X[indx[0:totaltrainsample],0],"x2":X[indx[0:totaltrainsample],1],"x3":X[indx[0:totaltrainsample],2],"x4":X[indx[0:totaltrainsample],3]})
     variables = ['y','x1','x2','x3','x4']
     isContinuous=[False,True,True,True,True]
@@ -356,4 +356,7 @@ if __name__ == '__main__':
     print(ypredict-ytrue)
     print(len(ypredict-ytrue))
     print(getScore(variables, param, structure, isContinuous,testset))
+    diff = list(ypredict-ytrue)
+    correct_prediction = diff.count(0)
+    print('correct', (correct_prediction*100.0)/len(ytrue))
     

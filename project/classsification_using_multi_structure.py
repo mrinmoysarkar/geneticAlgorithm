@@ -80,7 +80,9 @@ class scoreFunction:
 			for j in range(noofclass):
 				sample = pd.DataFrame({self.variables[0]:[j]})
 				for l in range(len(self.variables)-1):
-					temp = pd.DataFrame({self.variables[l+1]:[samples[self.variables[l+1]][i]]})
+					key = self.variables[l+1]
+					value = [samples[self.variables[l+1]][i]]
+					temp = pd.DataFrame({key:value})
 					sample = pd.concat([sample,temp],axis=1)
 				pro = 0
 				for s in range(n):
@@ -129,7 +131,7 @@ if __name__ == '__main__':
     #print(ytrue)
     #print(int(dataset.shape[0]/12))
 
-    nooftrial = 10
+    nooftrial = 1
     pred_correct = 0
     for tr in range(nooftrial):
     	# random.shuffle(indx)
@@ -153,19 +155,19 @@ if __name__ == '__main__':
     #print(ypredict-ytrue)
     #print(len(ypredict-ytrue))
     #print(bpl.getScore(variables, param, structure, isContinuous,testset))
-    	#noofclass,variables,isContinuous,dataset,testset,ytrue = load_iris_data()
+    	noofclass,variables,isContinuous,dataset,testset,ytrue = lddata.load_iris_data()
     	#noofclass,variables,isContinuous,dataset,testset,ytrue = load_breast_data()
-    	noofclass,variables,isContinuous,dataset,testset,ytrue = lddata.load_uav_state_data()
+    	#noofclass,variables,isContinuous,dataset,testset,ytrue = lddata.load_uav_state_data()
     	scorefunc = scoreFunction(dataset,variables,isContinuous)
     	noOfvar = len(variables)
-    	popSize = 10
-    	noOfgeneration = 10
+    	popSize = 50
+    	noOfgeneration = 50
     	pm = 0.01
     	pc = 0.9
     	stringLen = int(noOfvar*(noOfvar-1)/2)
     	pop = gaop.generate_pop(popSize,stringLen)
     	noOfrun = 2
-    #startTime = time.time()
+    #startTime = time.time()5
     #create a Queue to share results
     	q = 0 #Queue()
     	structures, popScore = gaop.runGA(noOfgeneration,popSize,stringLen,variables,pc,pm,scorefunc,q)
@@ -177,12 +179,12 @@ if __name__ == '__main__':
     	scorefunc.calc_weight(popScore)
     	print("weight done")
     	ypredict = scorefunc.predict_multi(noofclass,testset)
-    	print(ypredict)
-    	print(ytrue[0:10])
-    	diff = list(ypredict-ytrue)
+    	#print(ypredict)
+    	#print(ytrue[0:10])
+    	diff = list(np.array(ypredict)-np.array(ytrue))
     	correct_prediction = diff.count(0)
     	print(correct_prediction)
-    	print(len(ypredict-ytrue))
+    	#print(len(ypredict-ytrue))
     	pred_correct += (float(correct_prediction)/len(diff))*100.0
     print("correct prediction % :", pred_correct/nooftrial)
 
