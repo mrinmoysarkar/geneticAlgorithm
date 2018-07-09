@@ -8,21 +8,21 @@ import numpy as np
 import time
 import sys
 from multiprocessing import Process, Queue
+import multiprocessing
 
 class scoreFunction:
-	
-	def __init__(self,datatable,variables,isContinuous):
+    def __init__(self,datatable,variables,isContinuous):
 		self.data = bpl.addMissingData(datatable, variables, isContinuous)
 		self.variables = variables
 		self.isContinuous = isContinuous
 	
-	def score(self,structure):
+    def score(self,structure):
 		startTime = time.time()
 		#print(structure)
 		param = bpl.getParameters(structure,self.data,self.variables,self.isContinuous)
 		#print(param)
 		scor = 0#bpl.getScore(self.variables, param, structure, self.isContinuous, self.data)
-		noofcpu = 30
+		noofcpu = multiprocessing.cpu_count()-2
 		N = self.data.shape[0]
 		partision_size = int(self.data.shape[0]/noofcpu)
 		data1 = self.data.iloc[0]
@@ -47,19 +47,22 @@ class scoreFunction:
 		scor  = scor - (size/2.0)*np.log2(N)
 		endTime = time.time()
 		workTime =  endTime - startTime
-		print("worktime",workTime)
+		# print("worktime",workTime)
 		return scor
 	
-	def calc_param(self,structures):
-		n = structures.shape[0]
-		self.structures = structures
-		self.parameters = []
-		for i in range(n):
-			param = bpl.getParameters(structures[i],self.data,self.variables,self.isContinuous)
-			#print(param)
-			self.parameters.append(param)
+    def calc_param(self,structures):
+        n = structures.shape[0]
+        self.structures = structures
+        self.parameters = []
+        for i in range(n):
+            param = bpl.getParameters(structures[i],self.data,self.variables,self.isContinuous)
+            # print('cal para')
+            # print(structures[i])
+            # print(self.score(structures[i]))
+            # print(structures[i])
+            self.parameters.append(param)
 	
-	def calc_weight(self,scores):
+    def calc_weight(self,scores):
 		n = self.structures.shape[0]
 		self.weight = []
 		for i in range(n):
@@ -70,31 +73,70 @@ class scoreFunction:
 		sumw = sum(self.weight)
 		self.weight = [x / sumw for x in self.weight]
 		print(self.weight)
-	
-	def predict_multi(self,noofclass,samples):
-		ts = samples.shape[0]
-		output = []
-		n = self.structures.shape[0]
-		for i in range(ts):
-			p = [] 
-			for j in range(noofclass):
-				sample = pd.DataFrame({self.variables[0]:[j]})
-				for l in range(len(self.variables)-1):
-					key = self.variables[l+1]
-					value = [samples[self.variables[l+1]][i]]
-					temp = pd.DataFrame({key:value})
-					sample = pd.concat([sample,temp],axis=1)
-				pro = 0
-				for s in range(n):
-					w = self.weight[s]
-					structure = self.structures[s]
-					param = self.parameters[s]
-					prob = bpl.getJointprobability(self.variables, param, structure, self.isContinuous,sample)
-					if prob:
-						pro += w*prob[0]
-				p.append(pro)
-			output.append(p.index(max(p)))
-		return output
+
+    def predict(self,noofclass,samples,ytrue,q):
+        ts = samples.shape[0]
+        output = []
+        n = self.structures.shape[0]
+        for i in range(ts):
+            p = [] 
+            for j in range(noofclass):
+                sample = pd.DataFrame({self.variables[0]:[j]})
+                for l in range(len(self.variables)-1):
+                    key = self.variables[l+1]
+                    value = [samples[self.variables[l+1]][i]]
+                    temp = pd.DataFrame({key:value})
+                    sample = pd.concat([sample,temp],axis=1)
+                pro = 0
+                for s in range(n):
+                    w = self.weight[s]
+                    structure = self.structures[s]
+                    param = self.parameters[s]
+                    prob = bpl.getJointprobability(self.variables, param, structure, self.isContinuous,sample)
+                    if prob:
+                        pro += w*prob[0]
+                p.append(pro)
+            output.append(p.index(max(p)))
+        diff = list(np.array(output)-np.array(ytrue))
+        # correct_prediction = diff.count(0)
+        # print('cp',correct_prediction)
+        # print(diff)
+        q.put(diff)
+
+
+    def predict_multi(self,noofclass,samples,ytrue):
+        startTime = time.time()
+        output = []
+        noofcpu = multiprocessing.cpu_count()-2
+        N = samples.shape[0]
+        partision_size = int(N/noofcpu)
+        data1 = self.data.iloc[0]
+        q = Queue()
+        p = []
+        for i in range(noofcpu-1):
+            samples1 = samples.iloc[i*partision_size:(i+1)*partision_size,:]
+            samples1 = samples1.reset_index(drop=True)
+            samples1 = samples1.dropna()
+            yt = ytrue[i*partision_size:(i+1)*partision_size]
+            p.append(Process(target=self.predict, args=(noofclass,samples1,yt,q)))
+            p[i].start()
+        samples1 = samples.iloc[(noofcpu-1)*partision_size:N,:]
+        samples1 = samples1.reset_index(drop=True)
+        samples1 = samples1.dropna()
+        yt = ytrue[(noofcpu-1)*partision_size:N]
+        p.append(Process(target=self.predict, args=(noofclass,samples1,yt,q)))
+        p[noofcpu-1].start()
+        for i in range(noofcpu):
+            diff = q.get(True)
+            #print(diff)
+            if diff:
+                output = output + diff
+        for i in range(noofcpu):
+            p[i].join()
+        endTime = time.time()
+        workTime =  endTime - startTime
+        print("worktime",workTime)
+        return output
 
 
 
@@ -155,9 +197,9 @@ if __name__ == '__main__':
     #print(ypredict-ytrue)
     #print(len(ypredict-ytrue))
     #print(bpl.getScore(variables, param, structure, isContinuous,testset))
-    	noofclass,variables,isContinuous,dataset,testset,ytrue = lddata.load_iris_data()
+    	#noofclass,variables,isContinuous,dataset,testset,ytrue = lddata.load_iris_data()
     	#noofclass,variables,isContinuous,dataset,testset,ytrue = load_breast_data()
-    	#noofclass,variables,isContinuous,dataset,testset,ytrue = lddata.load_uav_state_data()
+    	noofclass,variables,isContinuous,dataset,testset,ytrue = lddata.load_uav_state_data()
     	scorefunc = scoreFunction(dataset,variables,isContinuous)
     	noOfvar = len(variables)
     	popSize = 50
@@ -171,21 +213,21 @@ if __name__ == '__main__':
     #create a Queue to share results
     	q = 0 #Queue()
     	structures, popScore = gaop.runGA(noOfgeneration,popSize,stringLen,variables,pc,pm,scorefunc,q)
-    	#print(structures)
+    	print(structures)
     	#print(pop)
     	scorefunc.calc_param(structures)
     	print("param calc done")
     	print(popScore)
     	scorefunc.calc_weight(popScore)
     	print("weight done")
-    	ypredict = scorefunc.predict_multi(noofclass,testset)
+    	ypredict = scorefunc.predict_multi(noofclass,testset,ytrue)
     	#print(ypredict)
     	#print(ytrue[0:10])
-    	diff = list(np.array(ypredict)-np.array(ytrue))
-    	correct_prediction = diff.count(0)
+    	#diff = list(np.array(ypredict)-np.array(ytrue))
+    	correct_prediction = ypredict.count(0)
     	print(correct_prediction)
     	#print(len(ypredict-ytrue))
-    	pred_correct += (float(correct_prediction)/len(diff))*100.0
+    	pred_correct += (float(correct_prediction)/len(ypredict))*100.0
     print("correct prediction % :", pred_correct/nooftrial)
 
     # p1 = Process(target=gaop.runGA, args=(noOfgeneration,popSize,stringLen,variables,pc,pm,scorefunc,q))

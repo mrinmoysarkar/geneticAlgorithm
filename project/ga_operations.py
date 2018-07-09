@@ -53,6 +53,8 @@ def selection(pop,popSize,var,score):
     #     #score[i] = scoreFunc.score(model)
     #     score[i] = scoreFunc.score(pop[i])
     #print('score size',score.shape[0])
+    # print("selection score")
+    # print(score)
     popScore = np.copy(score)
     avgScore = np.mean(score)
     noOfsamples = 5;
@@ -66,7 +68,9 @@ def selection(pop,popSize,var,score):
     indexs = np.delete(indexs,i1);
     i2 = np.random.randint(low=0,high=noOfsamples-2)
     p2 = indexs[i2]
-    return p1,p2,avgScore,popScore
+    # print("selection popscore")
+    # print(popScore)
+    return p1,p2,avgScore,popScore[:]
         
 #def replace(pop,child1,child2,popScore):
 #    i1 = np.argmin(popScore)
@@ -110,6 +114,8 @@ def mutation(child,pm,stringLen):
     return child
 
 def replace(pop,popSize,stringLen,score):
+    # print('in replace old score')
+    # print(score)
     i1 = np.argmax(score)
     for i in range(score.shape[0]):
         if np.isinf(score[i]):
@@ -132,22 +138,32 @@ def replace(pop,popSize,stringLen,score):
         score = np.delete(score,i1)
         newpop[i] = pop[i1]
         pop = np.delete(pop,i1,axis=0)
-    return newpop,newscore
+    # print('in replace new score')
+    # print(newscore)
+    return newpop,newscore[:]
     
-def reGenerate(pop,popSize,var,score,scoreFunc,stringLen,pc,pm):
+def reGenerate(pop,popSize,var,popscore,scoreFunc,stringLen,pc,pm):
     tempop = np.copy(pop)
     #for i in range(int(popSize/2)):
-    p1,p2,avgScore,popScore = selection(pop,popSize,var,score)
+    # print('regen0')
+    # print(popscore)
+    p1,p2,avgScore,popScore = selection(pop,popSize,var,popscore[:])
+    # print('regen')
+    # print(popScore)
     child1,child2 = crossover(pop,p1,p2,pc,stringLen)
     if (len(child1) != 0) and (len(child2) != 0):
         child1 = mutation(child1,pm,stringLen)
         child2 = mutation(child2,pm,stringLen)
-        score = np.append(score,scoreFunc.score(child1))
+        popScore = np.append(popScore,scoreFunc.score(child1))
         tempop = np.append(tempop,[child1],axis=0)
-        score = np.append(score,scoreFunc.score(child2))
+        popScore = np.append(popScore,scoreFunc.score(child2))
         tempop = np.append(tempop,[child2],axis=0)
-    pop,score = replace(tempop,popSize,stringLen,score)
-    return pop, score
+    # print("regenerate before")
+    # print(popScore)
+    pop,pscore = replace(tempop,popSize,stringLen,popScore[:])
+    # print('regen after')
+    # print(pscore)
+    return pop,pscore[:]
 
 
 def getStatisticOfGen(pop,popSize,scoreFunc):
@@ -242,16 +258,16 @@ def runGA(noOfgeneration,popSize,stringLen,var,pc,pm,scoreFunc,q):
     scoresMax[0] += maxScore   
     for i in range(noOfgeneration-1):
         print("regenerate start")
-        pop,popScore = reGenerate(pop,popSize,var,popScore,scoreFunc,stringLen,pc,pm) 
+        pop,popScore = reGenerate(pop,popSize,var,popScore[:],scoreFunc,stringLen,pc,pm) 
         print("regenerate complete")
         #popScore,maxScore,avgScore = getStatisticOfGen(pop,popSize,scoreFunc)
         scoresAvg[i+1] = np.mean(popScore)
         scoresMax[i+1] = np.max(popScore)
         print("generation: ",(i+1))
     #q.put(scoresAvg) 
-    plt.plot(scoresAvg)
-    plt.xlabel('No. of Generation')
-    plt.ylabel('Fitness(f)')
-    plt.title('Evolution of average score of the population')
-    plt.show()
+    # plt.plot(scoresAvg)
+    # plt.xlabel('No. of Generation')
+    # plt.ylabel('Fitness(f)')
+    # plt.title('Evolution of average score of the population')
+    # plt.show()
     return pop, popScore
