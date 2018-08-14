@@ -4,14 +4,14 @@ Created on Tue May 15 09:32:07 2018
 
 @author: mrinmoy
 """
-
+import ga_operations as gaop
 import pandas as pd
 import numpy as np
 from sklearn.tree import DecisionTreeRegressor
 import math
 from sklearn import datasets
 import random
-
+import load_dataset as lddata
 
 def addMissingData(datatable, variables, isContinuous):
     noOfdiscreteVar = 0
@@ -166,6 +166,8 @@ def getParameters(structure,dataset,variables,isContinuous):
                 hasParent = True
             indx = indx+1
         d = pd.DataFrame(d)
+        #print("root data")
+        #print(d)
         # if newisContinuous[0] == False and len(newVariables)>1:
         #     allexperiment = [0]*len(variables)
         #     indx1 = 0
@@ -174,8 +176,14 @@ def getParameters(structure,dataset,variables,isContinuous):
         #print(d)
         #print(newisContinuous)
         if hasParent:
-            param[newVariables[1]] = getParam(d,newVariables,newisContinuous)
+            if newisContinuous[1]:
+                d = d.reset_index(drop=True)
+                param = getParam(d,newVariables,newisContinuous)
+            else:
+                d = d.reset_index(drop=True)
+                param[newVariables[1]] = getParam(d,newVariables,newisContinuous)
         else:
+            d = d.reset_index(drop=True)
             param = getParam(d,newVariables,newisContinuous)
         parameters.append(param)
     return parameters
@@ -330,33 +338,47 @@ if __name__ == '__main__':
     # param = getParameters(structure,dataset,variables,isContinuous)
     # getJointprobability(variables, param, structure,isContinuous,dataset)
 
-    iris = datasets.load_iris()
-    X = iris.data  
-    y = iris.target
-    #print(X)
-    #print(y)
-    indx = [i for i in range(len(y))]
-    random.shuffle(indx)
-    totaltrainsample = int(0.8*len(y))
-    #print(X[indx[0:totaltrainsample],1])
-    #print(y[indx[0:totaltrainsample]])
-    #print(totaltrainsample)
-    structure = [1,1,0,1,0,0,1,0,0,0]
-    dataset = pd.DataFrame({"y":y[indx[0:totaltrainsample]],"x1":X[indx[0:totaltrainsample],0],"x2":X[indx[0:totaltrainsample],1],"x3":X[indx[0:totaltrainsample],2],"x4":X[indx[0:totaltrainsample],3]})
-    variables = ['y','x1','x2','x3','x4']
-    isContinuous=[False,True,True,True,True]
+    # iris = datasets.load_iris()
+    # X = iris.data  
+    # y = iris.target
+    # #print(X)
+    # #print(y)
+    # indx = [i for i in range(len(y))]
+    # random.shuffle(indx)
+    # totaltrainsample = int(0.8*len(y))
+    # #print(X[indx[0:totaltrainsample],1])
+    # #print(y[indx[0:totaltrainsample]])
+    # #print(totaltrainsample)
+    # pop = gaop.generate_pop(1,465)
+    # structure = pop[0]#[1,1,0,1,0,0,1,0,0,0]
+    # dataset = pd.DataFrame({"y":y[indx[0:totaltrainsample]],"x1":X[indx[0:totaltrainsample],0],"x2":X[indx[0:totaltrainsample],1],"x3":X[indx[0:totaltrainsample],2],"x4":X[indx[0:totaltrainsample],3]})
+    # variables = ['y','x1','x2','x3','x4']
+    # isContinuous=[False,True,True,True,True]
+    # testset = pd.DataFrame({"y":y[indx[totaltrainsample:len(y)]],"x1":X[indx[totaltrainsample:len(y)],0],"x2":X[indx[totaltrainsample:len(y)],1],"x3":X[indx[totaltrainsample:len(y)],2],"x4":X[indx[totaltrainsample:len(y)],3]})
+    # ytrue = y[indx[totaltrainsample:len(y)]]
+    # noofclass = 3
+    noofclass,variables,isContinuous,dataset,testset,ytrue = lddata.load_uav_state_data_without_randomized()#load_uav_state_data()#load_breast_data()
+    structure=[]
+    for i in range(len(variables)-1):
+        structure += [1]
+        for j in range(i):
+            structure += [0]
+    print(len(structure))
+    print(structure)
     dataset = addMissingData(dataset, variables, isContinuous)
     param = getParameters(structure,dataset,variables,isContinuous)
-    #print(param)
+    print(param)
 
-    testset = pd.DataFrame({"y":y[indx[totaltrainsample:len(y)]],"x1":X[indx[totaltrainsample:len(y)],0],"x2":X[indx[totaltrainsample:len(y)],1],"x3":X[indx[totaltrainsample:len(y)],2],"x4":X[indx[totaltrainsample:len(y)],3]})
-    ytrue = y[indx[totaltrainsample:len(y)]]
-    noofclass = 3
+    
     ypredict = predict(noofclass,variables, param, structure, isContinuous,testset)
-    print(ypredict-ytrue)
-    print(len(ypredict-ytrue))
-    print(getScore(variables, param, structure, isContinuous,testset))
-    diff = list(ypredict-ytrue)
+    diff = np.array(ypredict)-np.array(ytrue)
+    print(diff)
+    print(len(diff))
+    # print(getScore(variables, param, structure, isContinuous,testset))
+    diff = list(diff)
     correct_prediction = diff.count(0)
     print('correct', (correct_prediction*100.0)/len(ytrue))
+    print()
+
+
     

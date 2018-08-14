@@ -9,6 +9,7 @@ import time
 import sys
 from multiprocessing import Process, Queue
 import multiprocessing
+import matplotlib.pyplot as plt
 
 class scoreFunction:
     def __init__(self,datatable,variables,isContinuous):
@@ -20,7 +21,7 @@ class scoreFunction:
 		startTime = time.time()
 		#print(structure)
 		param = bpl.getParameters(structure,self.data,self.variables,self.isContinuous)
-		#print(param)
+		print(param)
 		scor = 0#bpl.getScore(self.variables, param, structure, self.isContinuous, self.data)
 		noofcpu = multiprocessing.cpu_count()-2
 		N = self.data.shape[0]
@@ -47,7 +48,7 @@ class scoreFunction:
 		scor  = scor - (size/2.0)*np.log2(N)
 		endTime = time.time()
 		workTime =  endTime - startTime
-		# print("worktime",workTime)
+		print("worktime",workTime)
 		return scor
 	
     def calc_param(self,structures):
@@ -61,6 +62,7 @@ class scoreFunction:
             # print(self.score(structures[i]))
             # print(structures[i])
             self.parameters.append(param)
+        #print(self.parameters)
 	
     def calc_weight(self,scores):
 		n = self.structures.shape[0]
@@ -198,16 +200,22 @@ if __name__ == '__main__':
     #print(len(ypredict-ytrue))
     #print(bpl.getScore(variables, param, structure, isContinuous,testset))
     	#noofclass,variables,isContinuous,dataset,testset,ytrue = lddata.load_iris_data()
-    	#noofclass,variables,isContinuous,dataset,testset,ytrue = load_breast_data()
-    	noofclass,variables,isContinuous,dataset,testset,ytrue = lddata.load_uav_state_data()
+    	noofclass,variables,isContinuous,dataset,testset,ytrue = lddata.load_breast_data()
+    	#noofclass,variables,isContinuous,dataset,testset,ytrue = lddata.load_uav_state_data()
+        #print(dataset)
+        plt.plot(dataset['x5'])
+        plt.show()
     	scorefunc = scoreFunction(dataset,variables,isContinuous)
     	noOfvar = len(variables)
-    	popSize = 50
+    	popSize = 10
     	noOfgeneration = 50
     	pm = 0.01
     	pc = 0.9
+        print(noOfvar)
     	stringLen = int(noOfvar*(noOfvar-1)/2)
+        print(stringLen)
     	pop = gaop.generate_pop(popSize,stringLen)
+        #print(pop[0])
     	noOfrun = 2
     #startTime = time.time()5
     #create a Queue to share results
